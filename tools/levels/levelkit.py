@@ -464,8 +464,8 @@ class Level:
         zones = [dict({"id": z["id"], "name": z["name"]}, **rect_json(z["rect"])) for z in self.zones]
         regions = [dict({"name": g["name"], "zone": g["zone"]}, **rect_json(g["rect"])) for g in self.regions]
 
-        interior = {"source": "interior boxes (reverb, exposure, the excludePlayerRoom spawn rule) and the doorways the "
-                              "Buzzards fly in through (outside -> inside, at the opening's flight height)",
+        interior = {"source": "interior boxes (reverb, exposure, the excludePlayerRoom spawn rule) and the doorways "
+                              "(none in these levels: the drones that flew through them are removed, 2026-11-28)",
                     "fade": {"web": 1.5, "ue": 150}, "boxes": [], "doorways": []}
         for ib in self.interior_boxes:
             mn, mx = ib["min"], ib["max"]

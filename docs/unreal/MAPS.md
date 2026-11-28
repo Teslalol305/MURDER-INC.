@@ -18,7 +18,7 @@ summary for the owner (section 1) and the staged build plan with its lanes (sect
 | Setting | Jamaica Ave under the elevated train, Hollis, Queens, 4:15 PM, daylight. **Exactly as it is now.** | Chinatown, Canal St and Mott St, 7:40 PM, night, the streets wet after rain, packed with shop signs and neon | The roofs above a bright square at 11:52 PM: water towers, the steel behind giant screens, then the street |
 | Feel | Open avenue, one big shop, a lot | Close quarters: a covered market, alleys, a bakery you walk through, an arcade, a banquet hall, a low roof | Vertical: three roof heights, stairs and a scaffold down to the street, a fight across the square |
 | What the player does | Takes back Reels 1 to 3 (the Avenue, the Chop Shop, the Cage) and reaches the IPX truck | Takes back Reels 4 to 6 (a bootleg table on Canal, the market's cold room, the dub room where the Vultures copy masters) and reaches the IPX truck at the east end of Canal | Takes back Reels 7 to 9 (a tank house under a water tower, the gantry behind the big LED wall, the booth under the viewing stand), and the IPX truck rolls in on 46th Street |
-| Enemies | Goons and Buzzards | The same, one more Goon alive at once; Goons come out of doorways and onto the roof | The same, one more Buzzard per wave on the harder settings; Goons on every roof |
+| Enemies | Goons only (2026-11-28: drones removed by the owner) | The same, one more Goon alive at once; Goons come out of doorways and onto the roof | The same, pursuit +2 on the harder settings; Goons on every roof (2026-11-28: drones removed by the owner, so Goons only on every level) |
 | Length | about 5 minutes | about 5 minutes | about 6 to 7 minutes |
 
 The story: the Vultures stole a whole album, nine master reels, and Rule takes them back across one day and night. The
@@ -81,7 +81,7 @@ designs:
 |---|---|---|
 | Canal's roof drops assumed no fall damage; falls hurt above 13 m/s | Every drop is 4.0 m or less (a sidewalk shed under the kitchen-roof gap), every other edge is guarded | chinatown.md 4, 4.4 |
 | Midtown's radio lines and guide assumed one reel order | Lines that name no place; the screen dies with its own reel; the guide aims at the nearest unsecured reel over a route graph; an any-order test | midtown.md 6.2, 6.4 |
-| Midtown's reel rooms were safe rooms (doors too narrow for Goons, too low for Buzzards) | 2.0 m Goon doors everywhere; no Buzzard doorways by design; the booth window a shoot-through slot | midtown.md 2.3, 9.1 |
+| Midtown's reel rooms were safe rooms (doors too narrow for Goons, too low for Buzzards; moot since 2026-11-28) | 2.0 m Goon doors everywhere; no Buzzard doorways by design; the booth window a shoot-through slot | midtown.md 2.3, 9.1 |
 | Canal's roof was a camp, worst in Hold Canal Street | The roof is its own nav layer with roof Goons, firing cells and an `overlooks` filter; Holdout ships only with it; a roof-hold test | chinatown.md 4.4, 8.6 |
 | No proof that a map load streams through Pixel Streaming on Linux | Stage 0, before any loader code, with the MoviePlayer check; it picks hard travel or the persistent-map fallback | progression.md 6.3 |
 | Midtown needs multi-layer nav, the longest engine task | Split into step A (layers, spawn reach, firing cells: enough for roof fights) and step B (stair links); step A starts in stage 1 | midtown.md 7.2, 17 |
@@ -150,7 +150,7 @@ of the new sections, so the old code path runs.
 - **Inputs:** progression.md 8; chinatown.md 16; midtown.md 17.
 - **Outputs:** E1 `FMILevelData::ForLevel(Id)` (`Get()` stays the Block); E2 `el` optional; E3 boot gate from levels.json
   `map`/`greyMap`, `?level=`, `?enter=`; E4 times per loaded level; E5 text overlay with fallback; E6 per-level audio;
-  E7 per-level tuning (startPitch, rating, Buzzard ceiling, difficulty adds); E8 `excludePlayerRoom`, `overlooks` and
+  E7 per-level tuning (startPitch, rating, difficulty adds; no Buzzard ceiling since 2026-11-28); E8 `excludePlayerRoom`, `overlooks` and
   `enabled` (a spawn point marked `"enabled": false` is not loaded: Canal's roof points until N1; the patch is
   docs/unreal/patches/maps-D/0002, and `check_level.py --release` fails while any point is still off); E9
   the per-level enemy-look rim boost (only if the readability check fails); E10 the extraction arrival (`afterAll`;
@@ -171,7 +171,7 @@ of the new sections, so the old code path runs.
   Levels.Chinatown.RoofHold; the grey-box gate of stage 2.
 - **Depends on:** E1, D2. **The riskiest engine work**: step A starts on day one of stage 1. No data-only fallback
   exists for Midtown (midtown.md 7.2); if step A misses its stage-2 gate, the lead decides between a slip and a reduced
-  release (Midtown's roofs held by Buzzards, Hold Canal Street left out).
+  release (Hold Canal Street left out; 2026-11-28: drones removed by the owner, so there is no Buzzard fallback: Midtown's roof fights need nav step A, and if it misses the gate the lead chooses a slip).
 
 ### T · Map travel and loading
 
@@ -330,7 +330,7 @@ of the new sections, so the old code path runs.
 | Risk | Effect | Mitigation |
 |---|---|---|
 | The stream freezes or goes black during a map load | No map travel as designed | Stage 0 proof; the persistent-map fallback (progression.md 6.6) chosen before any loader code |
-| Nav step A is late or misbehaves | Midtown has no roof Goons; Canal's roof is a camp | Starts day one of stage 1, with its own tests; if it misses the stage-2 gate, the lead chooses between a slip and a reduced release (Midtown's roofs held by Buzzards, Hold Canal Street left out) |
+| Nav step A is late or misbehaves | Midtown has no roof Goons; Canal's roof is a camp | Starts day one of stage 1, with its own tests; if it misses the stage-2 gate, the lead chooses between a slip and a reduced release (Hold Canal Street left out; no Buzzard fallback since 2026-11-28: Midtown's roof fights need step A, and if it misses, the lead chooses a slip) |
 | Night rigs and wet ground over budget on SM5 | Frame rate below 60 on E3DS | Measured in the grey box in stage 2; spots-only shadows; the `damp` step; fewer lights |
 | Nanite fallback meshes (vehicles, the road) too heavy | Triangle and draw-call budgets missed on every map, the Block included | R0 baseline in stage 0; explicit fallback settings, coordinated with the READY and SMOOTH lanes |
 | Package and copy time grow | Slower session starts; fewer versions fit in 10 GB | Size ceilings per map, a copy-time gate, shared tiling sets and atlased signs |

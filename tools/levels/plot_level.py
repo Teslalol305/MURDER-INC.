@@ -9,7 +9,7 @@ Drawn: ground and floors; solids filled by height (cut away above 3 m over inter
 storeys over walk-in rooms are outlines); roof-layer walkable cells tinted per layer; edge guards (playerOnly) in
 magenta; ground spawns (circles; squares for upper layers, hollow when switched off), air spawns (triangles), cover
 (dots), explosives (orange), reels (gold, numbered), the extraction ring and truck, the player start (arrow), interior
-boxes (dashed), Buzzard doorways (yellow ticks), links (cyan), authored drops (yellow arrows), the guide path of the
+boxes (dashed), links (cyan), authored drops (yellow arrows), the guide path of the
 intended reel order (green) and of the other five orders (thin olive).
 """
 

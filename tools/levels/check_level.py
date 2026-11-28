@@ -28,9 +28,9 @@ DATA = os.path.join(HERE, "data")
 REPORTS = os.path.join(HERE, "reports")
 
 EXPECT = {
-    "chinatown": {"objectives": 3, "ground": 38, "air": 18, "explosives": 18, "titleKeys": 14, "colliderCap": 800,
+    "chinatown": {"objectives": 3, "ground": 38, "air": 0, "explosives": 18, "titleKeys": 14, "colliderCap": 800,
                   "reels": ["reel4", "reel5", "reel6"]},
-    "midtown": {"objectives": 3, "ground": 30, "air": 18, "explosives": 17, "titleKeys": 14, "colliderCap": 820,
+    "midtown": {"objectives": 3, "ground": 30, "air": 0, "explosives": 17, "titleKeys": 14, "colliderCap": 820,
                 "reels": ["reel7", "reel8", "reel9"]},
 }
 CJK = re.compile("[⺀-⿿　-〿぀-ヿ㄀-ㇿ㈀-鿿가-힯豈-﫿︰-﹏＀-￯]")
@@ -309,29 +309,9 @@ def check_spawns(doc, boxes, grids, rep):
     rep.add("spawns.groundOnFreeCells", not off, off or "every ground point is on a free cell of its own layer")
     rep.add("spawns.groundOneComponentPerLayer", not comp_bad, comp_bad or "each layer's ground points lie in one connected region")
     rep.add("spawns.groundNotInsideColliders", not inside, inside or "no ground point's capsule (r 0.3, 1.8 m) overlaps a solid above its step")
-    # air
-    b = doc["bounds"]["web"]
-    bad_air = []
-    for p in doc["enemySpawns"]["points"]:
-        if p["type"] != "air":
-            continue
-        x, y, z = W(p["web"]["pos"])
-        P = np.array([x, y, z])
-        d = np.maximum(np.maximum(mn_all - P, 0), P - mx_all)
-        dist = float(np.sqrt((d * d).sum(axis=1)).min())
-        ground = 0.0
-        for bx in boxes:
-            if bx["flags"]["bulletOnly"]:
-                continue
-            (x0, y0, z0), (x1, y1, z1) = bx["min"], bx["max"]
-            if x0 <= x <= x1 and z0 <= z <= z1 and y1 <= y and y1 > ground:
-                ground = y1
-        above = y - ground
-        inb = b["minX"] + 1.2 <= x <= b["maxX"] - 1.2 and b["minZ"] + 1.2 <= z <= b["maxZ"] - 1.2
-        if dist < 1.5 or not (2.2 <= above <= 12.0) or not inb:
-            bad_air.append({"index": p["index"], "pos": [x, y, z], "nearestBox": round(dist, 2), "aboveGround": round(above, 2), "inBounds": inb})
-    rep.add("spawns.air", not bad_air, bad_air or "every air point is 2.2 to 12 m over the ground below it, 1.5 m or more from any "
-            "collider, inside the bounds minus the Buzzards' 1.2 m margin")
+    # air: the drones are removed (owner, 2026-11-28, config.json flow.drones=false): no level has an air point
+    n_air = [p["index"] for p in doc["enemySpawns"]["points"] if p["type"] == "air"]
+    rep.add("spawns.noAir", not n_air, n_air or "no air points: the drones (Buzzards) are removed from the game, so the level has none")
     return main
 
 

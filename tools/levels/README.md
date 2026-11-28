@@ -9,6 +9,12 @@ python3 tools/levels/check_level.py   # the checks below -> tools/levels/reports
 python3 tools/levels/plot_level.py    # top-down plans -> art/previews/maps/plan_<id>.jpg
 ```
 
+`python3 tools/levels/test_levels.py` rebuilds both files, runs the checker and the names check and asserts the data contract
+(docs/unreal/maps/data_contract.md); it needs no engine.
+
+**2026-11-28: drones removed by the owner.** Neither file has air points, doorways, a Buzzard ceiling or a Buzzard wave
+add (check `spawns.noAir`); every mention of them below is history. Counts: Canal 38 ground / 0 air, Midtown 30 / 0.
+
 Each takes `--level chinatown|midtown|all` (default all). `build_level.py --el-fallback` adds the degenerate deck of
 MAPS.md E2's fallback (see `el` below). The build is deterministic: the same table gives the same bytes.
 
@@ -48,7 +54,7 @@ optional and absent from the Block's file, so the Block's code path is unchanged
 - `colliderBudget`: the design's clutter groups, planned against placed, and every clutter prop the layout tool skipped
   because it would have stood on a spawn, a reel, a door, a link or another collider (`levelkit.Level.clutter`).
 - `drops` (every authored drop with its height), `tuning` (maxAliveAdd, excludePlayerRoom, startPitch, Midtown's
-  waveAdd, pursuitBudgetAdd, Buzzard maxAltitude 36, rating), `checks` (inputs for the checker), Midtown's `views`.
+  pursuitBudgetAdd, rating), `checks` (inputs for the checker), Midtown's `views`.
 - Art side: `ground.surfaces/floors` (rectangles), `buildings` (mass colliders, roofs, facades, shops), `propPlacements`
   (catalogue name, position, rotationY, colliders: the art lanes write props_<id>.json from these and fit the meshes to
   the colliders), `signage` (every sign and screen face: text, kind, position, normal, size, colour, night state),
@@ -78,7 +84,7 @@ WAIVED and printed with the reason. WARN is used for one advisory check only (`s
 
 | Check | Rule |
 |---|---|
-| schema.loaderSections, .counts, .reelIds, .zonesTileBounds | every loader section and field present with its type; ue mirror = web x 100; counts = levels.json `provides` (Canal 3 / 38 ground / 18 air / 18 explosives / 14 title keys; Midtown 3 / 30 / 18 / 17 / 14); the zones tile the bounds |
+| schema.loaderSections, .counts, .reelIds, .zonesTileBounds | every loader section and field present with its type; ue mirror = web x 100; counts = levels.json `provides` (Canal 3 / 38 ground / 0 air / 18 explosives / 14 title keys; Midtown 3 / 30 / 0 / 17 / 14); the zones tile the bounds |
 | content.englishOnly, .noRejectedRealNames | no CJK character anywhere in the file; none of the names the designs rejected and no real mark the art bible forbids, anywhere |
 | content.noRetiredNames, .namesOnApprovedList | tools/names/names.json (lane C): no retired name or id built from one anywhere in the file; every sign face, screen slide and shop list names an approved name, a generic word, a real place or a story mark of the level |
 | colliders.count, .explosiveIndices, .noThinMovementBoxes, .surfacesKnown | at most 800 / 820, all axis-aligned; each explosive owns its collider; no movement box under 0.05 m; every surface a key of audio.json surfaces |
@@ -106,12 +112,12 @@ design counted the steel stair and the scaffold short; the rating times are re-t
 
 The layouts author the street furniture, alley and yard props, vendor goods, map edges, the premiere's structures, W 46
 St and the roof dressing as colliders (`L.clutter`), so the grey box of stage 2 is built with its cover; the art lanes
-fit their meshes to them. Canal: 599 colliders (clutter 337 of the 414 planned in those groups; the rest of the 780 is
+fit their meshes to them. Canal: 602 colliders (clutter 337 of the 414 planned in those groups; the rest of the 780 is
 the vehicle slicing the design assumed, about 5 boxes a car, where the data keeps the Block's body-and-glass pair).
 Midtown: 613 colliders (clutter 248 of 299). The line breakers are named in the tables: Canal's garment rails turned
 across the south sidewalk and the tall shop displays (the protected lane), newsstands and steam chimneys; Midtown's
 broadcast, cable, catering and staging trucks, trailers, light towers, press walls, tents, booths and truss towers of the
-premiere (the 45 m rule). Cover points: Canal 240 (design about 112), Midtown 160 (110; W 46 St 17 of 10), before the
+premiere (the 45 m rule). Cover points: Canal 241 (design about 112), Midtown 160 (110; W 46 St 17 of 10), before the
 bake's filter.
 
 ## Deviations from the designs (also in each file's meta.deviationsFromDesign)

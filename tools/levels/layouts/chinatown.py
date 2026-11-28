@@ -28,8 +28,7 @@ def build():
         "them on.",
         "Signs and screens: English only, invented names (owner's answer 2026-11-26).",
     ]
-    L.deviations = ["air point over the yard at (-13, 8.5, 9.4) instead of (-13, 8.5, 8): at z 8 it was 0.75 m from the yard "
-                    "stair's guard between the flights (rule: 1.5 m from any collider)."]
+    L.deviations = ["No air points (the design's 18): the drones are removed from the game (owner, 2026-11-28)."]
 
     # ------------------------------------------------------------------ zones and places
     L.zone("canal", "CANAL ST", rect(-44, 44, -34, -14))
@@ -337,13 +336,7 @@ def build():
     L.interior("workshop", 34.0, 0, -10, 37.6, 3.8, -4)
     L.interior("banquet", 26.3, 0, 18.4, 43.6, 5.0, 31.6)
     L.interior("dub room", 18.4, 0, 18.4, 26.0, 4.2, 31.6, reel="reel6")
-    for x in (-20, -13, -6):
-        L.doorway("market gate", (x, 2.6, -16.5), (x, 2.6, -11.8))
-    L.doorway("market rear", (-5, 2.6, 8.6), (-5, 2.6, 3.6))
-    L.doorway("arcade north", (31.5, 2.6, -16.5), (31.5, 2.6, -11))
-    L.doorway("arcade south", (31.5, 2.6, 4.5), (31.5, 2.6, -1))
-    L.doorway("banquet doors", (33, 2.5, 15.5), (33, 2.5, 20.0))
-    L.doorway("dub room roll-up", (15.5, 2.4, 25.5), (21.0, 2.4, 25.5))
+    # 2026-11-28: drones removed by the owner: the 8 Buzzard doorways of the first build are gone; interior.doorways is empty.
 
     # ------------------------------------------------------------------ the player, the reels, the truck
     L.player_start = {"source": "chinatown.md 5: in the Canal roadway beside the livery sedan, just inside the west dig, facing east",
@@ -359,7 +352,7 @@ def build():
                     "zone": "canal", "place": "CANAL ST", "pos": (32.1, 0.0, -23.0), "radius": 2.5,
                     "truck": {"pos": (37.5, 0.0, -23.0), "rotationY": 0.0, "prop": ipx, "colliders": L.props[ipx]["colliders"]}}
 
-    # ------------------------------------------------------------------ enemy spawns (38 ground, 18 air)
+    # ------------------------------------------------------------------ enemy spawns (38 ground, no air points: the drones are removed)
     g = L.ground
     for n, x, z in (("c1", -41.5, -27.0), ("c2", -35, -33.3), ("c3", -22, -33.3), ("c4", -8, -33.3), ("c5", 5, -33.3),
                     ("c6", 20, -33.3), ("c7", 31, -33.3), ("c8", 42.0, -31.5)):
@@ -378,10 +371,7 @@ def build():
     g("rf1", -21.4, ROOF, 8.0, layer="roof", overlooks=ov, enabled=False, note="at the B0 bulkhead door")
     g("rf2", -4.0, ROOF, -12.4, layer="roof", overlooks=ov, enabled=False, note="behind the rooftop letters' legs")
     g("rf3", -24.0, ROOF, -5.0, layer="roof", overlooks=ov, enabled=False, note="behind the west condenser")
-    for x, y, z in ((-36, 9.5, -24.5), (-20, 10, -25), (-4, 10.5, -24.5), (12, 10, -25), (28, 10, -24.5), (40, 9.5, -25.5),
-                    (20, 11, -21.5), (-20, 9, -4), (-8, 9.5, 0), (-13, 8.5, 9.4), (4, 9, 3), (13, 10, -6), (13, 10, 8),
-                    (13, 9.5, 22), (24, 9, 6), (36, 9.5, 6), (28, 10.5, 13), (40, 9, 13)):
-        L.air("air", x, y, z)
+    # 2026-11-28: drones removed by the owner: the level has no air points (the 18 Buzzard points of the first build are gone).
 
     # ------------------------------------------------------------------ cover: props and named solids 0.8 m or taller that block shots
     # (section 10 counts the 0.95 m stall rows and the tables, so the floor is 0.8 m, not 1.0); long sides every 3 m,

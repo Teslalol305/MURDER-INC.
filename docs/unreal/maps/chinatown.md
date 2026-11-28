@@ -1,5 +1,7 @@
 # Level 2: Chinatown / Canal Street (design)
 
+> **2026-11-28: drones removed by the owner** (DECISIONS.md 2026-11-27 ~22:15, `config.json` `flow.drones` = false). Canal Street is Goons only; its 38 ground points stand (the three roof points stay off until nav step A). Every remaining mention of Buzzards, air spawns, drone doorways or a Buzzard ceiling in this file is history and is void: the level files carry no air points, no Buzzard `tuning` and no Buzzard waves (`tools/levels`, spawns.noAir).
+
 Status: design for the three-map release (DECISIONS.md 2026-11-25 ~21:40). Nothing here is built. This file is the
 level designer's brief. It is meant for whoever writes the level data and its generator, the art lane (Blender and
 the box), the gameplay/C++ lane and the lead. The staged build plan and the lanes are in [../MAPS.md](../MAPS.md).
@@ -667,7 +669,7 @@ The Buzzard share is not raised here: Buzzards are at their weakest in 4 to 10 m
 Every other point carries `layer` street. The spawn reach of this level is street → [street, roof] and roof →
 [roof, street], filtered by each roof point's `overlooks`.
 
-### 8.3 Air spawns (18)
+### 8.3 Air spawns (removed 2026-11-28: the level has none; the list below is history)
 
 The Buzzard starts at the point's y. Every point is at least 2.2 m over the ground below, at most 12 m (the
 ceiling is 15 m absolute), and at least 1.5 m from any collider.
@@ -699,7 +701,7 @@ ceiling is 15 m absolute), and at least 1.5 m from any collider.
 - **The 26 m fallback ring** can land inside a building in a dense map. With 35 points spread through every
   space, ChoosePosition should never need it. The generator checks this anyway (section 17, check 6).
 
-### 8.5 Buzzards here
+### 8.5 Buzzards here (removed 2026-11-28; history)
 
 - **No El.** The loader requires `el.deck` today, and the Buzzards plan around it. Revision 2 makes `el` optional
   once, for both new levels (`bHasDeck`, MAPS.md lane E, item E2): the level file has no `el` section and the deck

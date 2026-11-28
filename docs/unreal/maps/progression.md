@@ -1,5 +1,7 @@
 # Three levels: progression and systems (design)
 
+> **2026-11-28: drones removed by the owner** (DECISIONS.md 2026-11-27 ~22:15, `config.json` `flow.drones` = false). Hold mode is offered when the level provides ground spawns (the air-spawn requirement is gone; `provides.air` is 0 for Canal and Midtown). Every remaining mention of Buzzards, air spawns, drone doorways or a Buzzard ceiling in this file is history and is void: the level files carry no air points, no Buzzard `tuning` and no Buzzard waves (`tools/levels`, spawns.noAir).
+
 Status: design for the three-map release (DECISIONS.md 2026-11-25 ~21:40). Nothing here is built. This file covers how
 the story runs across Level 1 → 2 → 3: the story thread and per-level text, unlocks, what carries over and what resets,
 the front end (level select, continue, thumbnails), the end of each level, where progress is saved on a streamed game,
@@ -265,7 +267,7 @@ The rules (spec 04 3.11) and the wave growth are the same everywhere. Midtown's 
 |---|---|---|
 | The Block | none | the global tables, unchanged (the goldens pin them) |
 | Canal Street | `maxAliveAdd` 1 | maxAlive 10 / 12 / 14: close quarters, more bodies at once |
-| Midtown | `waveAdd` {buzzard: 1} on boss and kingpin, `pursuitBudgetAdd` 2 | one more Buzzard in each wave, a longer pursuit to the truck |
+| Midtown | `pursuitBudgetAdd` 2 (the `waveAdd` Buzzard was removed 2026-11-28) | a longer pursuit to the truck |
 
   Full per-level wave tables are not in this release.
 - Rating time thresholds per level are Block [[270, 2], [400, 1]] (config.json, unchanged), Canal Street
@@ -342,7 +344,7 @@ scaling as the other screens do. At 1280 x 720 the cards are 266 x 150. Each car
 
 ### 3.4 Style screen (step 4)
 
-- Mode: Story, or the level's Hold name. Hold is offered when the level provides air and ground spawns (FMIReadiness,
+- Mode: Story, or the level's Hold name. Hold is offered when the level provides ground spawns (2026-11-28: no air spawns, the drones are removed) (FMIReadiness,
   as now).
 - Difficulty: hustler, boss or kingpin, unchanged.
 - Time: the level's `times`. With one entry (as on all three levels in this release) the time is shown as fixed text,
@@ -884,8 +886,8 @@ is new (3.3). The PSO recording uses `tools/box/pso-record.sh` (new).
 
 - `MurderInc.Levels.<Id>.Loads`, for chinatown and midtown:
   - every required section is present;
-  - the counts equal levels.json `provides` (Canal: 3 objectives, 38 ground and 18 air spawns, 18 explosives, 14 title
-    keys; Midtown: 3, 30, 18, 17, 14);
+  - the counts equal levels.json `provides` (Canal: 3 objectives, 38 ground and 0 air spawns (2026-11-28), 18 explosives, 14 title
+    keys; Midtown: 3, 30, 0, 17, 14; air is 0 since 2026-11-28);
   - the collider count is at most 800 (Canal) or 820 (Midtown).
 - `MurderInc.Levels.<Id>.Nav`: the grid built by FMIBoxWorld from the level's colliders equals the `nav` in the file,
   cell for cell, per layer. The file's `nav` is written by the engine's own bake step (`-run=MILevelBake`, MAPS.md

@@ -1,5 +1,7 @@
 # Level 3: Midtown rooftops / the Square (design)
 
+> **2026-11-28: drones removed by the owner** (DECISIONS.md 2026-11-27 ~22:15, `config.json` `flow.drones` = false). Midtown is Goons only; the roof fights rely on nav step A and nothing else (there is no Buzzard fallback). Every remaining mention of Buzzards, air spawns, drone doorways or a Buzzard ceiling in this file is history and is void: the level files carry no air points, no Buzzard `tuning` and no Buzzard waves (`tools/levels`, spawns.noAir).
+
 Level 3 of the three-level story: **MIDTOWN**, at night. The fight starts on the roofs above a bright square, among water
 towers and the steel behind giant screens. Rule works his way down the roofs, then down a scaffold stair to the street, and
 the run ends with a fight across the square to the IPX truck. This document is the level designer's spec: footprint,
@@ -55,7 +57,7 @@ revision resolves them with the should-fix items worth doing:
 - **The truck rolls in.** It is not on the map until the last reel is secured, then it pulls up on W 46 St east of
   the square, so the finale runs down Broadway over new ground instead of back over the plaza, and there is no
   refusal on the way to the booth (6.3).
-- **Harder than Canal:** one more Buzzard per wave on boss and kingpin, pursuit +2, through the level's `tuning` (7.1).
+- **Harder than Canal:** pursuit +2 (2026-11-28: the extra Buzzard is gone with the drones), through the level's `tuning` (7.1).
 - **Readability and the midnight square:** the takeover screen is white on black with a small oxblood mark, the
   palette is cool white, and the square is dressed with what a crowd leaves behind (12).
 - Smaller fixes: the clock starts at 11:52 PM so the countdown means something; Broadway runs southbound; `el` is
@@ -80,7 +82,7 @@ positive yaw turns left. Unreal = (x, z, y) x 100 cm. A facing (fx, fz) is yaw =
 | Objectives | 3 reels, in any order: Reel 7, The Tank (R2); Reel 8, The Gantry (R1, behind the big LED wall); Reel 9, The Booth (street, under the Stand) |
 | Extraction | The IPX truck rolls in on W 46 St, east end, once the last reel is secured (code IPX, radius 2.5) |
 | Route length | About 265 m walked in the intended order, 21 m of height lost; target run 5.5 to 7 min (the Block: about 5) |
-| Enemies | Goons and Buzzards only; pools stay 12 / 8; the global difficulty tables plus this level's `tuning`: +1 Buzzard per wave on boss and kingpin, pursuit budget +2 |
+| Enemies | Goons only (2026-11-28: drones removed); the global difficulty tables plus this level's `tuning`: pursuit budget +2 |
 | Spawns | 30 ground (each tagged with a walk level), 18 air |
 | Explosives | 17 (propane and welding racks, the two kinds that exist) |
 | Colliders | target 760, cap 820 (the Block: 777) |
@@ -465,8 +467,7 @@ the Block: with exactly 3 reels everything lines up, and nothing in flow rules c
 
 The level's `tuning.difficulty` (16.3; the Block has none) makes the last level the hardest:
 
-- `waveAdd` {buzzard: 1} on boss and kingpin: one more Buzzard in each of the three waves. This is the level built for
-  them (open air over every roof, a 36 m ceiling). The pool of 8 still caps the number alive.
+- ~~`waveAdd` {buzzard: 1}~~ removed 2026-11-28 with the drones; the level file has no `waveAdd`.
 - `pursuitBudgetAdd` 2: pursuit budgets 7, 10 and 14.
 - `spawn.excludePlayerRoom` true: no Goon spawns inside the interior box the player is in (the booth, the tank house,
   the service stair), so they come through the doors.
@@ -500,15 +501,13 @@ the grey box is played with each.
   10 s, is quietly returned to the pool: no kill, no score, no event, and its wave slot goes back to the queue. That
   frees its maxAlive slot for a Goon near the player. This only applies when a level has more than one layer, so the
   Block never does it.
-- **Buzzards.** A per-level `tuning.buzzard.maxAltitude` of **36** (Block: 15, absolute). The orbit height is already
+- **Buzzards (removed 2026-11-28; `tuning.buzzard` is not in the file).** Was: a per-level `tuning.buzzard.maxAltitude` of **36** (Block: 15, absolute). The orbit height is already
   relative to the player (player y + 4.8 to 7.2), so over R3 they orbit at 26 to 28.4. The highest flight solid in bounds
   is WT-A's cone at 32.4. Midtown has no El, so the level file has no `el` section (17.2) and the deck logic is skipped.
 - **If step A slips.** A review suggested a data-only fallback: the roofs as one stepped heightfield on today's single
   grid. It does not work here: today's nav band is measured from y = 0 (a cell is blocked by anything between 0.47 and
   1.5 m above the street), so no roof at 14 to 21 m can be walkable on it, stepped or not. Step A is therefore the
-  minimum for roof Goons. The only fallback is the first draft's: roofs held by Buzzards (two more per wave through
-  `tuning`) with street Goons firing up from firing positions authored as points, which is not the level the owner
-  asked for. That is why step A starts in stage 1, in parallel with the loader, on a Midtown grey box (MAPS.md).
+  minimum for roof Goons. There is no fallback (2026-11-28: the drones are removed, so the first draft's roofs held by Buzzards no longer exists). If step A misses its gate, the lead chooses a slip. That is why step A starts in stage 1, in parallel with the loader, on a Midtown grey box (MAPS.md).
 
 ### 7.3 Ground spawns (30)
 
@@ -545,7 +544,7 @@ the grey box is played with each.
 | g28 | street | square | (-7.0, 0.15, 4.8) | service stair street door |
 | g29 | street | square | (13.8, 0.15, -18.5) | behind the souvenir kiosk south of the Stand (kiosk x 15..18, z -19.5..-17.5) |
 
-### 7.4 Air spawns (18; y absolute)
+### 7.4 Air spawns (removed 2026-11-28: the level has none; the list below is history)
 
 Roofs: a0 (-44, 28.0, -36), a1 (-32, 28.0, -14), a2 (-16, 26.0, -36), a3 (-12, 26.0, -8), a4 (-46, 25.0, 4), a5 (-34,
 25.0, 12), a6 (-22, 22.0, 2), a7 (-14, 22.0, 18), a8 (-40, 22.0, 20).
@@ -996,8 +995,7 @@ New optional sections (the Block has none, so nothing changes for it):
 },
 "drops": [ "D1, D2, D3 of section 5.2: from, to, height" ],
 "tuning": {
-  "buzzard": { "maxAltitude": 36 },
-  "difficulty": { "waveAdd": { "buzzard": 1 }, "waveAddOn": ["boss", "kingpin"], "pursuitBudgetAdd": 2 },
+  "difficulty": { "pursuitBudgetAdd": 2 },
   "spawn": { "excludePlayerRoom": true },
   "rating": { "time": [[330, 2], [480, 1]] },
   "startPitch": -4

@@ -21,14 +21,14 @@
     "got": {
      "objectives": 3,
      "ground": 30,
-     "air": 18,
+     "air": 0,
      "explosives": 17,
      "titleKeys": 14
     },
     "levelsJsonProvides": {
      "objectives": 3,
      "ground": 30,
-     "air": 18,
+     "air": 0,
      "explosives": 17,
      "titleKeys": 14
     },
@@ -150,9 +150,9 @@
    "detail": "no ground point's capsule (r 0.3, 1.8 m) overlaps a solid above its step"
   },
   {
-   "check": "spawns.air",
+   "check": "spawns.noAir",
    "result": "PASS",
-   "detail": "every air point is 2.2 to 12 m over the ground below it, 1.5 m or more from any collider, inside the bounds minus the Buzzards' 1.2 m margin"
+   "detail": "no air points: the drones (Buzzards) are removed from the game, so the level has none"
   },
   {
    "check": "spawns.allEnabledForRelease",

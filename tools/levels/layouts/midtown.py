@@ -27,7 +27,7 @@ def build():
         "nav: four layers (street plane, r1 14.0, r2 17.6, r3 21.2), the six links L1 to L6 as polylines and the spawn "
         "reach are written; the grids are the engine bake's (-run=MILevelBake). The scaffold and service-stair polylines "
         "are generated here from the towers' landings and flights; the bake re-derives them.",
-        "No Buzzard doorways on purpose (midtown.md 9.1): interior.doorways is empty.",
+        "No doorways: interior.doorways is empty (the drones that used them are removed, 2026-11-28).",
         "The IPX truck's colliders are owner kind `truck`: out of the box world (shots, sight, movement) until all three reels "
         "are in (extraction.arrival afterAll, MAPS.md E10), but not noNav: the bake blocks its stop spot on the nav from the "
         "start, so the finale's pursuers never path into it.",
@@ -419,7 +419,7 @@ def build():
     E("rack", -2.0, 0.0, 16.5, note="at the scaffold's foot, in the parking lane")
     E("propane", 25.0, 0.0, -8.0, note="off the stalled bus's front")
 
-    # ------------------------------------------------------------------ interiors (9.1; no Buzzard doorways on purpose)
+    # ------------------------------------------------------------------ interiors (9.1; no doorways: the drones are removed)
     L.interior("bulkhead A", -48, R3, -37, -44, 24.0, -33)
     L.interior("tank house", -22, R2, -35, -16, 20.4, -29, reel="reel7")
     L.interior("machine room", -40, R2, -8, -34, 20.6, -2)
@@ -451,7 +451,7 @@ def build():
                                    "no refusal prompt before (MAPS.md E10)",
                     "truck": {"pos": (tx, 0.0, tz), "rotationY": 0.0, "prop": None, "colliders": tcols}}
 
-    # ------------------------------------------------------------------ enemy spawns (30 ground with layers, 18 air)
+    # ------------------------------------------------------------------ enemy spawns (30 ground with layers, no air points: the drones are removed)
     ground = [("g0", "r3", -34.0, -14.0), ("g1", "r3", -47.0, -21.0), ("g2", "r3", -32.5, -36.5), ("g3", "r3", -40.0, -13.5),
               ("g4", "r2", -43.0, 2.0), ("g5", "r2", -37.0, -9.0), ("g6", "r2", -33.0, 6.5), ("g7", "r2", -48.0, -2.0),
               ("g8", "r2", -25.5, -36.5), ("g9", "r2", -13.5, -12.0), ("g10", "r2", -26.0, -6.0), ("g11", "r2", -14.0, -37.0),
@@ -466,10 +466,7 @@ def build():
     for n, x, y, z in street:
         L.ground(n, x, y, z, layer="street")
     L.deviations.append("g23 at (25, 0, 18.8) instead of (25, 0, 18): still 'behind the water barriers', which stand at z 17.6..18.2.")
-    for x, y, z in ((-44, 28.0, -36), (-32, 28.0, -14), (-16, 26.0, -36), (-12, 26.0, -8), (-46, 25.0, 4), (-34, 25.0, 12),
-                    (-22, 22.0, 2), (-14, 22.0, 18), (-40, 22.0, 20), (0, 11.0, -36), (16, 12.0, -20), (26, 12.0, -30),
-                    (2, 10.0, -10), (18, 10.0, 0), (26, 11.0, 12), (-2, 10.0, 30), (16, 10.0, 30), (28, 12.0, 34)):
-        L.air("air", x, y, z)
+    # 2026-11-28: drones removed by the owner: the level has no air points (the 18 Buzzard points of the first build are gone).
 
     # ------------------------------------------------------------------ cover (7.6): movement solids 0.9 to 1.6 m tall, one every 3 m
     # along long faces, and the inner faces of the parapets every 4 m
@@ -575,8 +572,7 @@ def build():
                                   "g1_glitch": {"on": "objective:secured reel8"}, "ipx_takeover": {"on": "all reels secured"}}},
     }
     L.tuning = {"source": "midtown.md 7.1, 16.3: the level's adds over config.json (absent for the Block)",
-                "buzzard": {"maxAltitude": 36},
-                "difficulty": {"waveAdd": {"buzzard": 1}, "waveAddOn": ["boss", "kingpin"], "pursuitBudgetAdd": 2},
+                "difficulty": {"pursuitBudgetAdd": 2},
                 "spawn": {"excludePlayerRoom": True}, "rating": {"time": [[330, 2], [480, 1]]}, "startPitch": -4}
     L.vantage = {"source": "the top of the Stand and the gantry letterbox", "web": {"stairsFoot": {"x": -6.0, "y": SW, "z": 13.0}, "deck": {"x": 16.0, "y": 3.35, "z": -33.0}},
                  "ue": {"stairsFoot": {"X": -600, "Y": 1300, "Z": 15}, "deck": {"X": 1600, "Y": -3300, "Z": 335}}}

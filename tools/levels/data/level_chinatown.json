@@ -18,19 +18,19 @@
   "numbers": "rounded to 4 decimals",
   "status": "stage-1 data, unbaked: `nav.layers[*].grid` is absent until the engine bake (-run=MILevelBake) writes it; the game does not load this file yet (levels.json is unchanged)",
   "counts": {
-   "colliders": 599,
+   "colliders": 602,
    "orientedBoxes": 0,
    "enemySpawns": {
     "ground": 38,
-    "air": 18
+    "air": 0
    },
-   "coverPoints": 240,
+   "coverPoints": 241,
    "explosives": 18,
    "objectives": 3,
    "interiorBoxes": 7,
-   "doorways": 8,
+   "doorways": 0,
    "titleKeys": 14,
-   "propPlacements": 381,
+   "propPlacements": 384,
    "signage": 61
   },
   "notes": [
@@ -40,7 +40,7 @@
    "Signs and screens: English only, invented names (owner's answer 2026-11-26)."
   ],
   "deviationsFromDesign": [
-   "air point over the yard at (-13, 8.5, 9.4) instead of (-13, 8.5, 8): at z 8 it was 0.75 m from the yard stair's guard between the flights (rule: 1.5 m from any collider).",
+   "No air points (the design's 18): the drones are removed from the game (owner, 2026-11-28).",
    "places.regions: THE DUB ROOM (x 18..26.3, z 18..32) added before THE BANQUET HALL so the HUD names the reel's room as its objective place does (15 lists only THE BANQUET HALL for E2).",
    "Reel 6 at x 22.2 (design 21.2, still by the racks): the leg-4 route tie's margin goes from 0.4 % to 6 %; the rest is the guidance's path hysteresis (MAPS.md G6), see guide.waivers."
   ]
@@ -2379,528 +2379,6 @@
       "Z": 570.0
      },
      "yaw": 90.0
-    }
-   },
-   {
-    "index": 38,
-    "zone": "canal",
-    "place": "CANAL ST",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": -36.0,
-      "y": 9.5,
-      "z": -24.5
-     },
-     "facing": {
-      "x": 0.8374,
-      "y": 0,
-      "z": 0.5466
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": -3600.0,
-      "Y": -2450.0,
-      "Z": 950.0
-     },
-     "yaw": 33.1356
-    }
-   },
-   {
-    "index": 39,
-    "zone": "canal",
-    "place": "CANAL ST",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": -20.0,
-      "y": 10.0,
-      "z": -25.0
-     },
-     "facing": {
-      "x": 0.6402,
-      "y": 0,
-      "z": 0.7682
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": -2000.0,
-      "Y": -2500.0,
-      "Z": 1000.0
-     },
-     "yaw": 50.1944
-    }
-   },
-   {
-    "index": 40,
-    "zone": "canal",
-    "place": "CANAL ST",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": -4.0,
-      "y": 10.5,
-      "z": -24.5
-     },
-     "facing": {
-      "x": 0.1678,
-      "y": 0,
-      "z": 0.9858
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": -400.0,
-      "Y": -2450.0,
-      "Z": 1050.0
-     },
-     "yaw": 80.3401
-    }
-   },
-   {
-    "index": 41,
-    "zone": "canal",
-    "place": "CANAL ST",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": 12.0,
-      "y": 10.0,
-      "z": -25.0
-     },
-     "facing": {
-      "x": -0.4472,
-      "y": 0,
-      "z": 0.8944
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": 1200.0,
-      "Y": -2500.0,
-      "Z": 1000.0
-     },
-     "yaw": 116.5651
-    }
-   },
-   {
-    "index": 42,
-    "zone": "canal",
-    "place": "CANAL ST",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": 28.0,
-      "y": 10.0,
-      "z": -24.5
-     },
-     "facing": {
-      "x": -0.766,
-      "y": 0,
-      "z": 0.6429
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": 2800.0,
-      "Y": -2450.0,
-      "Z": 1000.0
-     },
-     "yaw": 139.9937
-    }
-   },
-   {
-    "index": 43,
-    "zone": "canal",
-    "place": "CANAL ST",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": 40.0,
-      "y": 9.5,
-      "z": -25.5
-     },
-     "facing": {
-      "x": -0.8528,
-      "y": 0,
-      "z": 0.5223
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": 4000.0,
-      "Y": -2550.0,
-      "Z": 950.0
-     },
-     "yaw": 148.5125
-    }
-   },
-   {
-    "index": 44,
-    "zone": "canal",
-    "place": "CANAL ST",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": 20.0,
-      "y": 11.0,
-      "z": -21.5
-     },
-     "facing": {
-      "x": -0.6983,
-      "y": 0,
-      "z": 0.7158
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": 2000.0,
-      "Y": -2150.0,
-      "Z": 1100.0
-     },
-     "yaw": 134.2927
-    }
-   },
-   {
-    "index": 45,
-    "zone": "market",
-    "place": "THE MARKET",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": -20.0,
-      "y": 9.0,
-      "z": -4.0
-     },
-     "facing": {
-      "x": 0.9889,
-      "y": 0,
-      "z": 0.1483
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": -2000.0,
-      "Y": -400.0,
-      "Z": 900.0
-     },
-     "yaw": 8.5308
-    }
-   },
-   {
-    "index": 46,
-    "zone": "market",
-    "place": "THE MARKET",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": -8.0,
-      "y": 9.5,
-      "z": 0.0
-     },
-     "facing": {
-      "x": 0.9923,
-      "y": 0,
-      "z": -0.124
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": -800.0,
-      "Y": 0.0,
-      "Z": 950.0
-     },
-     "yaw": -7.125
-    }
-   },
-   {
-    "index": 47,
-    "zone": "market",
-    "place": "THE MARKET",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": -13.0,
-      "y": 8.5,
-      "z": 9.4
-     },
-     "facing": {
-      "x": 0.7809,
-      "y": 0,
-      "z": -0.6247
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": -1300.0,
-      "Y": 940.0,
-      "Z": 850.0
-     },
-     "yaw": -38.6598
-    }
-   },
-   {
-    "index": 48,
-    "zone": "market",
-    "place": "THE BAKERY",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": 4.0,
-      "y": 9.0,
-      "z": 3.0
-     },
-     "facing": {
-      "x": -0.7071,
-      "y": 0,
-      "z": -0.7071
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": 400.0,
-      "Y": 300.0,
-      "Z": 900.0
-     },
-     "yaw": -135.0
-    }
-   },
-   {
-    "index": 49,
-    "zone": "mott",
-    "place": "MOTT ST",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": 13.0,
-      "y": 10.0,
-      "z": -6.0
-     },
-     "facing": {
-      "x": -0.9333,
-      "y": 0,
-      "z": 0.359
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": 1300.0,
-      "Y": -600.0,
-      "Z": 1000.0
-     },
-     "yaw": 158.9625
-    }
-   },
-   {
-    "index": 50,
-    "zone": "mott",
-    "place": "MOTT ST",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": 13.0,
-      "y": 10.0,
-      "z": 8.0
-     },
-     "facing": {
-      "x": -0.8222,
-      "y": 0,
-      "z": -0.5692
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": 1300.0,
-      "Y": 800.0,
-      "Z": 1000.0
-     },
-     "yaw": -145.3048
-    }
-   },
-   {
-    "index": 51,
-    "zone": "mott",
-    "place": "MOTT ST",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": 13.0,
-      "y": 9.5,
-      "z": 22.0
-     },
-     "facing": {
-      "x": -0.4921,
-      "y": 0,
-      "z": -0.8706
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": 1300.0,
-      "Y": 2200.0,
-      "Z": 950.0
-     },
-     "yaw": -119.4759
-    }
-   },
-   {
-    "index": 52,
-    "zone": "mott",
-    "place": "THE SQUARE",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": 24.0,
-      "y": 9.0,
-      "z": 6.0
-     },
-     "facing": {
-      "x": -0.96,
-      "y": 0,
-      "z": -0.28
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": 2400.0,
-      "Y": 600.0,
-      "Z": 900.0
-     },
-     "yaw": -163.7398
-    }
-   },
-   {
-    "index": 53,
-    "zone": "mott",
-    "place": "THE SQUARE",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": 36.0,
-      "y": 9.5,
-      "z": 6.0
-     },
-     "facing": {
-      "x": -0.9816,
-      "y": 0,
-      "z": -0.1909
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": 3600.0,
-      "Y": 600.0,
-      "Z": 950.0
-     },
-     "yaw": -168.9965
-    }
-   },
-   {
-    "index": 54,
-    "zone": "mott",
-    "place": "THE SQUARE",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": 28.0,
-      "y": 10.5,
-      "z": 13.0
-     },
-     "facing": {
-      "x": -0.8944,
-      "y": 0,
-      "z": -0.4472
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": 2800.0,
-      "Y": 1300.0,
-      "Z": 1050.0
-     },
-     "yaw": -153.4349
-    }
-   },
-   {
-    "index": 55,
-    "zone": "mott",
-    "place": "THE SQUARE",
-    "interior": false,
-    "type": "air",
-    "name": "air",
-    "facingSource": "centre",
-    "web": {
-     "pos": {
-      "x": 40.0,
-      "y": 9.0,
-      "z": 13.0
-     },
-     "facing": {
-      "x": -0.9439,
-      "y": 0,
-      "z": -0.3304
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": 4000.0,
-      "Y": 1300.0,
-      "Z": 900.0
-     },
-     "yaw": -160.71
     }
    }
   ]
@@ -5645,28 +5123,6 @@
     "layer": "street",
     "web": {
      "pos": {
-      "x": -7.42,
-      "y": 0.15,
-      "z": -17.9
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": -742.0,
-      "Y": -1790.0,
-      "Z": 15.0
-     }
-    }
-   },
-   {
-    "index": 125,
-    "zone": "canal",
-    "place": "CANAL ST",
-    "interior": false,
-    "onDeck": false,
-    "layer": "street",
-    "web": {
-     "pos": {
       "x": -5.4,
       "y": 0.0,
       "z": -20.15
@@ -5681,7 +5137,7 @@
     }
    },
    {
-    "index": 126,
+    "index": 125,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -5703,7 +5159,7 @@
     }
    },
    {
-    "index": 127,
+    "index": 126,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -5725,7 +5181,7 @@
     }
    },
    {
-    "index": 128,
+    "index": 127,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -5747,7 +5203,7 @@
     }
    },
    {
-    "index": 129,
+    "index": 128,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -5769,7 +5225,7 @@
     }
    },
    {
-    "index": 130,
+    "index": 129,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -5791,7 +5247,7 @@
     }
    },
    {
-    "index": 131,
+    "index": 130,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -5813,7 +5269,7 @@
     }
    },
    {
-    "index": 132,
+    "index": 131,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -5835,7 +5291,7 @@
     }
    },
    {
-    "index": 133,
+    "index": 132,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -5857,7 +5313,7 @@
     }
    },
    {
-    "index": 134,
+    "index": 133,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -5879,7 +5335,7 @@
     }
    },
    {
-    "index": 135,
+    "index": 134,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -5901,7 +5357,7 @@
     }
    },
    {
-    "index": 136,
+    "index": 135,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -5923,7 +5379,7 @@
     }
    },
    {
-    "index": 137,
+    "index": 136,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -5945,7 +5401,7 @@
     }
    },
    {
-    "index": 138,
+    "index": 137,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -5967,7 +5423,7 @@
     }
    },
    {
-    "index": 139,
+    "index": 138,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -5989,7 +5445,7 @@
     }
    },
    {
-    "index": 140,
+    "index": 139,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6011,7 +5467,7 @@
     }
    },
    {
-    "index": 141,
+    "index": 140,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6033,7 +5489,7 @@
     }
    },
    {
-    "index": 142,
+    "index": 141,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6055,7 +5511,7 @@
     }
    },
    {
-    "index": 143,
+    "index": 142,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6077,7 +5533,7 @@
     }
    },
    {
-    "index": 144,
+    "index": 143,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6099,7 +5555,7 @@
     }
    },
    {
-    "index": 145,
+    "index": 144,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6121,7 +5577,7 @@
     }
    },
    {
-    "index": 146,
+    "index": 145,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6143,7 +5599,7 @@
     }
    },
    {
-    "index": 147,
+    "index": 146,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6165,7 +5621,7 @@
     }
    },
    {
-    "index": 148,
+    "index": 147,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6187,7 +5643,7 @@
     }
    },
    {
-    "index": 149,
+    "index": 148,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6209,7 +5665,7 @@
     }
    },
    {
-    "index": 150,
+    "index": 149,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6231,7 +5687,7 @@
     }
    },
    {
-    "index": 151,
+    "index": 150,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6253,7 +5709,7 @@
     }
    },
    {
-    "index": 152,
+    "index": 151,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6275,7 +5731,7 @@
     }
    },
    {
-    "index": 153,
+    "index": 152,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6297,7 +5753,7 @@
     }
    },
    {
-    "index": 154,
+    "index": 153,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6319,7 +5775,7 @@
     }
    },
    {
-    "index": 155,
+    "index": 154,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6341,7 +5797,7 @@
     }
    },
    {
-    "index": 156,
+    "index": 155,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6363,7 +5819,7 @@
     }
    },
    {
-    "index": 157,
+    "index": 156,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6385,7 +5841,7 @@
     }
    },
    {
-    "index": 158,
+    "index": 157,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6407,7 +5863,7 @@
     }
    },
    {
-    "index": 159,
+    "index": 158,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6429,7 +5885,7 @@
     }
    },
    {
-    "index": 160,
+    "index": 159,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6451,7 +5907,7 @@
     }
    },
    {
-    "index": 161,
+    "index": 160,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6473,7 +5929,7 @@
     }
    },
    {
-    "index": 162,
+    "index": 161,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6495,7 +5951,7 @@
     }
    },
    {
-    "index": 163,
+    "index": 162,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6517,7 +5973,7 @@
     }
    },
    {
-    "index": 164,
+    "index": 163,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6539,7 +5995,7 @@
     }
    },
    {
-    "index": 165,
+    "index": 164,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6561,7 +6017,7 @@
     }
    },
    {
-    "index": 166,
+    "index": 165,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6583,7 +6039,7 @@
     }
    },
    {
-    "index": 167,
+    "index": 166,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6605,7 +6061,7 @@
     }
    },
    {
-    "index": 168,
+    "index": 167,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6627,7 +6083,7 @@
     }
    },
    {
-    "index": 169,
+    "index": 168,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6649,7 +6105,7 @@
     }
    },
    {
-    "index": 170,
+    "index": 169,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6671,7 +6127,7 @@
     }
    },
    {
-    "index": 171,
+    "index": 170,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6693,7 +6149,7 @@
     }
    },
    {
-    "index": 172,
+    "index": 171,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6715,7 +6171,7 @@
     }
    },
    {
-    "index": 173,
+    "index": 172,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -6737,7 +6193,7 @@
     }
    },
    {
-    "index": 174,
+    "index": 173,
     "zone": "mott",
     "place": "MOTT ST",
     "interior": false,
@@ -6759,7 +6215,7 @@
     }
    },
    {
-    "index": 175,
+    "index": 174,
     "zone": "market",
     "place": "THE BAKERY",
     "interior": true,
@@ -6781,7 +6237,7 @@
     }
    },
    {
-    "index": 176,
+    "index": 175,
     "zone": "mott",
     "place": "MOTT ST",
     "interior": false,
@@ -6803,7 +6259,7 @@
     }
    },
    {
-    "index": 177,
+    "index": 176,
     "zone": "mott",
     "place": "MOTT ST",
     "interior": false,
@@ -6825,7 +6281,7 @@
     }
    },
    {
-    "index": 178,
+    "index": 177,
     "zone": "mott",
     "place": "MOTT ST",
     "interior": false,
@@ -6847,7 +6303,7 @@
     }
    },
    {
-    "index": 179,
+    "index": 178,
     "zone": "alley",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -6869,7 +6325,7 @@
     }
    },
    {
-    "index": 180,
+    "index": 179,
     "zone": "alley",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -6891,7 +6347,7 @@
     }
    },
    {
-    "index": 181,
+    "index": 180,
     "zone": "alley",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -6913,7 +6369,7 @@
     }
    },
    {
-    "index": 182,
+    "index": 181,
     "zone": "alley",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -6935,7 +6391,7 @@
     }
    },
    {
-    "index": 183,
+    "index": 182,
     "zone": "market",
     "place": "THE MARKET",
     "interior": true,
@@ -6951,6 +6407,28 @@
     "ue": {
      "pos": {
       "X": -2492.0,
+      "Y": -1200.0,
+      "Z": 0.0
+     }
+    }
+   },
+   {
+    "index": 183,
+    "zone": "alley",
+    "place": "LANTERN ALLEY",
+    "interior": false,
+    "onDeck": false,
+    "layer": "street",
+    "web": {
+     "pos": {
+      "x": -27.2,
+      "y": 0.0,
+      "z": -12.0
+     }
+    },
+    "ue": {
+     "pos": {
+      "X": -2720.0,
       "Y": -1200.0,
       "Z": 0.0
      }
@@ -6958,28 +6436,6 @@
    },
    {
     "index": 184,
-    "zone": "alley",
-    "place": "LANTERN ALLEY",
-    "interior": false,
-    "onDeck": false,
-    "layer": "street",
-    "web": {
-     "pos": {
-      "x": -27.2,
-      "y": 0.0,
-      "z": -12.0
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": -2720.0,
-      "Y": -1200.0,
-      "Z": 0.0
-     }
-    }
-   },
-   {
-    "index": 185,
     "zone": "market",
     "place": "THE MARKET",
     "interior": true,
@@ -7001,7 +6457,7 @@
     }
    },
    {
-    "index": 186,
+    "index": 185,
     "zone": "alley",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -7023,7 +6479,7 @@
     }
    },
    {
-    "index": 187,
+    "index": 186,
     "zone": "alley",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -7045,7 +6501,7 @@
     }
    },
    {
-    "index": 188,
+    "index": 187,
     "zone": "alley",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -7067,7 +6523,7 @@
     }
    },
    {
-    "index": 189,
+    "index": 188,
     "zone": "market",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -7089,7 +6545,7 @@
     }
    },
    {
-    "index": 190,
+    "index": 189,
     "zone": "market",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -7111,7 +6567,7 @@
     }
    },
    {
-    "index": 191,
+    "index": 190,
     "zone": "market",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -7133,7 +6589,7 @@
     }
    },
    {
-    "index": 192,
+    "index": 191,
     "zone": "market",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -7155,7 +6611,7 @@
     }
    },
    {
-    "index": 193,
+    "index": 192,
     "zone": "market",
     "place": "THE MARKET",
     "interior": false,
@@ -7177,7 +6633,7 @@
     }
    },
    {
-    "index": 194,
+    "index": 193,
     "zone": "market",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -7199,7 +6655,7 @@
     }
    },
    {
-    "index": 195,
+    "index": 194,
     "zone": "market",
     "place": "THE MARKET",
     "interior": true,
@@ -7221,7 +6677,7 @@
     }
    },
    {
-    "index": 196,
+    "index": 195,
     "zone": "market",
     "place": "THE MARKET",
     "interior": false,
@@ -7243,7 +6699,7 @@
     }
    },
    {
-    "index": 197,
+    "index": 196,
     "zone": "market",
     "place": "THE MARKET",
     "interior": true,
@@ -7265,7 +6721,7 @@
     }
    },
    {
-    "index": 198,
+    "index": 197,
     "zone": "market",
     "place": "THE MARKET",
     "interior": true,
@@ -7287,7 +6743,7 @@
     }
    },
    {
-    "index": 199,
+    "index": 198,
     "zone": "market",
     "place": "THE MARKET",
     "interior": true,
@@ -7309,7 +6765,7 @@
     }
    },
    {
-    "index": 200,
+    "index": 199,
     "zone": "market",
     "place": "THE MARKET",
     "interior": true,
@@ -7331,7 +6787,7 @@
     }
    },
    {
-    "index": 201,
+    "index": 200,
     "zone": "market",
     "place": "THE MARKET",
     "interior": true,
@@ -7353,7 +6809,7 @@
     }
    },
    {
-    "index": 202,
+    "index": 201,
     "zone": "market",
     "place": "THE MARKET",
     "interior": true,
@@ -7375,7 +6831,7 @@
     }
    },
    {
-    "index": 203,
+    "index": 202,
     "zone": "market",
     "place": "THE MARKET",
     "interior": true,
@@ -7397,7 +6853,7 @@
     }
    },
    {
-    "index": 204,
+    "index": 203,
     "zone": "alley",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -7419,7 +6875,7 @@
     }
    },
    {
-    "index": 205,
+    "index": 204,
     "zone": "market",
     "place": "THE MARKET",
     "interior": false,
@@ -7441,7 +6897,7 @@
     }
    },
    {
-    "index": 206,
+    "index": 205,
     "zone": "market",
     "place": "THE MARKET",
     "interior": false,
@@ -7463,7 +6919,7 @@
     }
    },
    {
-    "index": 207,
+    "index": 206,
     "zone": "market",
     "place": "THE MARKET",
     "interior": false,
@@ -7485,7 +6941,7 @@
     }
    },
    {
-    "index": 208,
+    "index": 207,
     "zone": "market",
     "place": "THE MARKET",
     "interior": false,
@@ -7507,7 +6963,7 @@
     }
    },
    {
-    "index": 209,
+    "index": 208,
     "zone": "market",
     "place": "THE BAKERY",
     "interior": false,
@@ -7529,7 +6985,7 @@
     }
    },
    {
-    "index": 210,
+    "index": 209,
     "zone": "market",
     "place": "THE BAKERY",
     "interior": false,
@@ -7551,7 +7007,7 @@
     }
    },
    {
-    "index": 211,
+    "index": 210,
     "zone": "market",
     "place": "THE BAKERY",
     "interior": false,
@@ -7573,7 +7029,7 @@
     }
    },
    {
-    "index": 212,
+    "index": 211,
     "zone": "market",
     "place": "THE MARKET",
     "interior": false,
@@ -7595,7 +7051,7 @@
     }
    },
    {
-    "index": 213,
+    "index": 212,
     "zone": "mott",
     "place": "THE SQUARE",
     "interior": false,
@@ -7617,7 +7073,7 @@
     }
    },
    {
-    "index": 214,
+    "index": 213,
     "zone": "mott",
     "place": "THE BANQUET HALL",
     "interior": true,
@@ -7639,7 +7095,7 @@
     }
    },
    {
-    "index": 215,
+    "index": 214,
     "zone": "mott",
     "place": "THE DUB ROOM",
     "interior": true,
@@ -7661,7 +7117,7 @@
     }
    },
    {
-    "index": 216,
+    "index": 215,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -7683,7 +7139,7 @@
     }
    },
    {
-    "index": 217,
+    "index": 216,
     "zone": "alley",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -7705,7 +7161,7 @@
     }
    },
    {
-    "index": 218,
+    "index": 217,
     "zone": "mott",
     "place": "MOTT ST",
     "interior": false,
@@ -7727,7 +7183,7 @@
     }
    },
    {
-    "index": 219,
+    "index": 218,
     "zone": "mott",
     "place": "MOTT ST",
     "interior": false,
@@ -7749,7 +7205,7 @@
     }
    },
    {
-    "index": 220,
+    "index": 219,
     "zone": "mott",
     "place": "THE SQUARE",
     "interior": false,
@@ -7771,7 +7227,7 @@
     }
    },
    {
-    "index": 221,
+    "index": 220,
     "zone": "mott",
     "place": "MOTT ST",
     "interior": false,
@@ -7793,7 +7249,7 @@
     }
    },
    {
-    "index": 222,
+    "index": 221,
     "zone": "market",
     "place": "THE MARKET",
     "interior": true,
@@ -7809,6 +7265,28 @@
     "ue": {
      "pos": {
       "X": -2490.0,
+      "Y": -620.0,
+      "Z": 0.0
+     }
+    }
+   },
+   {
+    "index": 222,
+    "zone": "alley",
+    "place": "LANTERN ALLEY",
+    "interior": false,
+    "onDeck": false,
+    "layer": "street",
+    "web": {
+     "pos": {
+      "x": -27.15,
+      "y": 0.0,
+      "z": -6.2
+     }
+    },
+    "ue": {
+     "pos": {
+      "X": -2715.0,
       "Y": -620.0,
       "Z": 0.0
      }
@@ -7816,28 +7294,6 @@
    },
    {
     "index": 223,
-    "zone": "alley",
-    "place": "LANTERN ALLEY",
-    "interior": false,
-    "onDeck": false,
-    "layer": "street",
-    "web": {
-     "pos": {
-      "x": -27.15,
-      "y": 0.0,
-      "z": -6.2
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": -2715.0,
-      "Y": -620.0,
-      "Z": 0.0
-     }
-    }
-   },
-   {
-    "index": 224,
     "zone": "market",
     "place": "THE MARKET",
     "interior": true,
@@ -7853,6 +7309,28 @@
     "ue": {
      "pos": {
       "X": -2490.0,
+      "Y": -480.0,
+      "Z": 0.0
+     }
+    }
+   },
+   {
+    "index": 224,
+    "zone": "alley",
+    "place": "LANTERN ALLEY",
+    "interior": false,
+    "onDeck": false,
+    "layer": "street",
+    "web": {
+     "pos": {
+      "x": -27.15,
+      "y": 0.0,
+      "z": -4.8
+     }
+    },
+    "ue": {
+     "pos": {
+      "X": -2715.0,
       "Y": -480.0,
       "Z": 0.0
      }
@@ -7860,28 +7338,6 @@
    },
    {
     "index": 225,
-    "zone": "alley",
-    "place": "LANTERN ALLEY",
-    "interior": false,
-    "onDeck": false,
-    "layer": "street",
-    "web": {
-     "pos": {
-      "x": -27.15,
-      "y": 0.0,
-      "z": -4.8
-     }
-    },
-    "ue": {
-     "pos": {
-      "X": -2715.0,
-      "Y": -480.0,
-      "Z": 0.0
-     }
-    }
-   },
-   {
-    "index": 226,
     "zone": "market",
     "place": "THE MARKET",
     "interior": true,
@@ -7903,7 +7359,7 @@
     }
    },
    {
-    "index": 227,
+    "index": 226,
     "zone": "alley",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -7925,7 +7381,7 @@
     }
    },
    {
-    "index": 228,
+    "index": 227,
     "zone": "market",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -7947,7 +7403,7 @@
     }
    },
    {
-    "index": 229,
+    "index": 228,
     "zone": "market",
     "place": "THE BAKERY",
     "interior": true,
@@ -7969,7 +7425,7 @@
     }
    },
    {
-    "index": 230,
+    "index": 229,
     "zone": "market",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -7991,7 +7447,7 @@
     }
    },
    {
-    "index": 231,
+    "index": 230,
     "zone": "market",
     "place": "LANTERN ALLEY",
     "interior": false,
@@ -8013,7 +7469,7 @@
     }
    },
    {
-    "index": 232,
+    "index": 231,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -8035,7 +7491,7 @@
     }
    },
    {
-    "index": 233,
+    "index": 232,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -8057,7 +7513,7 @@
     }
    },
    {
-    "index": 234,
+    "index": 233,
     "zone": "canal",
     "place": "CANAL ST",
     "interior": false,
@@ -8079,7 +7535,51 @@
     }
    },
    {
+    "index": 234,
+    "zone": "canal",
+    "place": "CANAL ST",
+    "interior": false,
+    "onDeck": false,
+    "layer": "street",
+    "web": {
+     "pos": {
+      "x": 33.6,
+      "y": 0.15,
+      "z": -14.82
+     }
+    },
+    "ue": {
+     "pos": {
+      "X": 3360.0,
+      "Y": -1482.0,
+      "Z": 15.0
+     }
+    }
+   },
+   {
     "index": 235,
+    "zone": "canal",
+    "place": "CANAL ST",
+    "interior": false,
+    "onDeck": false,
+    "layer": "street",
+    "web": {
+     "pos": {
+      "x": 31.8,
+      "y": 0.15,
+      "z": -14.82
+     }
+    },
+    "ue": {
+     "pos": {
+      "X": 3180.0,
+      "Y": -1482.0,
+      "Z": 15.0
+     }
+    }
+   },
+   {
+    "index": 236,
     "zone": "mott",
     "place": "THE SQUARE",
     "interior": false,
@@ -8101,7 +7601,7 @@
     }
    },
    {
-    "index": 236,
+    "index": 237,
     "zone": "mott",
     "place": "MOTT ST",
     "interior": false,
@@ -8123,7 +7623,7 @@
     }
    },
    {
-    "index": 237,
+    "index": 238,
     "zone": "mott",
     "place": "THE BANQUET HALL",
     "interior": true,
@@ -8145,7 +7645,7 @@
     }
    },
    {
-    "index": 238,
+    "index": 239,
     "zone": "mott",
     "place": "THE BANQUET HALL",
     "interior": true,
@@ -8167,7 +7667,7 @@
     }
    },
    {
-    "index": 239,
+    "index": 240,
     "zone": "mott",
     "place": "THE BANQUET HALL",
     "interior": true,
@@ -8772,7 +8272,7 @@
   ]
  },
  "interior": {
-  "source": "interior boxes (reverb, exposure, the excludePlayerRoom spawn rule) and the doorways the Buzzards fly in through (outside -> inside, at the opening's flight height)",
+  "source": "interior boxes (reverb, exposure, the excludePlayerRoom spawn rule) and the doorways (none in these levels: the drones that flew through them are removed, 2026-11-28)",
   "fade": {
    "web": 1.5,
    "ue": 150
@@ -9040,224 +8540,7 @@
     "reel": "reel6"
    }
   ],
-  "doorways": [
-   {
-    "name": "market gate",
-    "web": {
-     "outside": {
-      "x": -20.0,
-      "y": 2.6,
-      "z": -16.5
-     },
-     "inside": {
-      "x": -20.0,
-      "y": 2.6,
-      "z": -11.8
-     }
-    },
-    "ue": {
-     "outside": {
-      "X": -2000.0,
-      "Y": -1650.0,
-      "Z": 260.0
-     },
-     "inside": {
-      "X": -2000.0,
-      "Y": -1180.0,
-      "Z": 260.0
-     }
-    }
-   },
-   {
-    "name": "market gate",
-    "web": {
-     "outside": {
-      "x": -13.0,
-      "y": 2.6,
-      "z": -16.5
-     },
-     "inside": {
-      "x": -13.0,
-      "y": 2.6,
-      "z": -11.8
-     }
-    },
-    "ue": {
-     "outside": {
-      "X": -1300.0,
-      "Y": -1650.0,
-      "Z": 260.0
-     },
-     "inside": {
-      "X": -1300.0,
-      "Y": -1180.0,
-      "Z": 260.0
-     }
-    }
-   },
-   {
-    "name": "market gate",
-    "web": {
-     "outside": {
-      "x": -6.0,
-      "y": 2.6,
-      "z": -16.5
-     },
-     "inside": {
-      "x": -6.0,
-      "y": 2.6,
-      "z": -11.8
-     }
-    },
-    "ue": {
-     "outside": {
-      "X": -600.0,
-      "Y": -1650.0,
-      "Z": 260.0
-     },
-     "inside": {
-      "X": -600.0,
-      "Y": -1180.0,
-      "Z": 260.0
-     }
-    }
-   },
-   {
-    "name": "market rear",
-    "web": {
-     "outside": {
-      "x": -5.0,
-      "y": 2.6,
-      "z": 8.6
-     },
-     "inside": {
-      "x": -5.0,
-      "y": 2.6,
-      "z": 3.6
-     }
-    },
-    "ue": {
-     "outside": {
-      "X": -500.0,
-      "Y": 860.0,
-      "Z": 260.0
-     },
-     "inside": {
-      "X": -500.0,
-      "Y": 360.0,
-      "Z": 260.0
-     }
-    }
-   },
-   {
-    "name": "arcade north",
-    "web": {
-     "outside": {
-      "x": 31.5,
-      "y": 2.6,
-      "z": -16.5
-     },
-     "inside": {
-      "x": 31.5,
-      "y": 2.6,
-      "z": -11.0
-     }
-    },
-    "ue": {
-     "outside": {
-      "X": 3150.0,
-      "Y": -1650.0,
-      "Z": 260.0
-     },
-     "inside": {
-      "X": 3150.0,
-      "Y": -1100.0,
-      "Z": 260.0
-     }
-    }
-   },
-   {
-    "name": "arcade south",
-    "web": {
-     "outside": {
-      "x": 31.5,
-      "y": 2.6,
-      "z": 4.5
-     },
-     "inside": {
-      "x": 31.5,
-      "y": 2.6,
-      "z": -1.0
-     }
-    },
-    "ue": {
-     "outside": {
-      "X": 3150.0,
-      "Y": 450.0,
-      "Z": 260.0
-     },
-     "inside": {
-      "X": 3150.0,
-      "Y": -100.0,
-      "Z": 260.0
-     }
-    }
-   },
-   {
-    "name": "banquet doors",
-    "web": {
-     "outside": {
-      "x": 33.0,
-      "y": 2.5,
-      "z": 15.5
-     },
-     "inside": {
-      "x": 33.0,
-      "y": 2.5,
-      "z": 20.0
-     }
-    },
-    "ue": {
-     "outside": {
-      "X": 3300.0,
-      "Y": 1550.0,
-      "Z": 250.0
-     },
-     "inside": {
-      "X": 3300.0,
-      "Y": 2000.0,
-      "Z": 250.0
-     }
-    }
-   },
-   {
-    "name": "dub room roll-up",
-    "web": {
-     "outside": {
-      "x": 15.5,
-      "y": 2.4,
-      "z": 25.5
-     },
-     "inside": {
-      "x": 21.0,
-      "y": 2.4,
-      "z": 25.5
-     }
-    },
-    "ue": {
-     "outside": {
-      "X": 1550.0,
-      "Y": 2550.0,
-      "Z": 240.0
-     },
-     "inside": {
-      "X": 2100.0,
-      "Y": 2550.0,
-      "Z": 240.0
-     }
-    }
-   }
-  ]
+  "doorways": []
  },
  "vantage": {
   "source": "the yard stair's foot and a point on the market roof",
@@ -10583,7 +9866,7 @@
    "chess_table": 2,
    "cold-room": 5,
    "condenser": 3,
-   "crate_stack": 14,
+   "crate_stack": 15,
    "cutting_table": 1,
    "delivery_truck": 1,
    "dig_fence": 4,
@@ -10652,7 +9935,7 @@
    "shed_post": 5,
    "shop_display": 5,
    "sidewalk": 5,
-   "sign_pole": 35,
+   "sign_pole": 36,
    "skylight": 4,
    "square": 1,
    "stage": 1,
@@ -10673,13 +9956,13 @@
    "tray_racks": 1,
    "tube_bundles": 1,
    "van": 3,
-   "vendor_stool": 6,
+   "vendor_stool": 7,
    "vendor_table": 17,
    "yard-stair": 28
   },
   "byOwner": {
    "level": 184,
-   "prop": 397,
+   "prop": 400,
    "explosive": 18
   },
   "bySurface": {
@@ -10689,7 +9972,7 @@
    "cloth": 48,
    "concrete": 59,
    "glass": 12,
-   "metal": 359,
+   "metal": 362,
    "rubber": 7,
    "wood": 35
   },
@@ -32880,6 +32163,61 @@
     "orientedBox": null,
     "web": {
      "min": {
+      "x": -6.8,
+      "y": 0.15,
+      "z": -17.5
+     },
+     "max": {
+      "x": -6.4,
+      "y": 0.65,
+      "z": -17.1
+     }
+    },
+    "ue": {
+     "min": {
+      "X": -680.0,
+      "Y": -1750.0,
+      "Z": 15.0
+     },
+     "max": {
+      "X": -640.0,
+      "Y": -1710.0,
+      "Z": 65.0
+     },
+     "center": {
+      "X": -660.0,
+      "Y": -1730.0,
+      "Z": 40.0
+     },
+     "extent": {
+      "X": 20.0,
+      "Y": 20.0,
+      "Z": 25.0
+     }
+    }
+   },
+   {
+    "index": 407,
+    "tag": "vendor_stool",
+    "surface": "metal",
+    "owner": {
+     "kind": "prop",
+     "prop": 189,
+     "name": "vendor_stool"
+    },
+    "blocks": {
+     "movement": true,
+     "shots": true,
+     "nav": true
+    },
+    "flags": {
+     "bulletOnly": false,
+     "playerOnly": false,
+     "noNav": false
+    },
+    "orientedBox": null,
+    "web": {
+     "min": {
       "x": 1.8,
       "y": 0.15,
       "z": -17.5
@@ -32914,12 +32252,12 @@
     }
    },
    {
-    "index": 407,
+    "index": 408,
     "tag": "vendor_stool",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 189,
+     "prop": 190,
      "name": "vendor_stool"
     },
     "blocks": {
@@ -32969,12 +32307,12 @@
     }
    },
    {
-    "index": 408,
+    "index": 409,
     "tag": "newspaper_box",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 190,
+     "prop": 191,
      "name": "newspaper_box"
     },
     "blocks": {
@@ -33024,12 +32362,12 @@
     }
    },
    {
-    "index": 409,
+    "index": 410,
     "tag": "newspaper_box",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 191,
+     "prop": 192,
      "name": "newspaper_box"
     },
     "blocks": {
@@ -33079,12 +32417,12 @@
     }
    },
    {
-    "index": 410,
+    "index": 411,
     "tag": "steam_chimney",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 192,
+     "prop": 193,
      "name": "steam_chimney"
     },
     "blocks": {
@@ -33134,12 +32472,12 @@
     }
    },
    {
-    "index": 411,
+    "index": 412,
     "tag": "steam_chimney",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 193,
+     "prop": 194,
      "name": "steam_chimney"
     },
     "blocks": {
@@ -33189,12 +32527,12 @@
     }
    },
    {
-    "index": 412,
+    "index": 413,
     "tag": "traffic_cone",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 194,
+     "prop": 195,
      "name": "traffic_cone"
     },
     "blocks": {
@@ -33244,12 +32582,12 @@
     }
    },
    {
-    "index": 413,
+    "index": 414,
     "tag": "traffic_cone",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 195,
+     "prop": 196,
      "name": "traffic_cone"
     },
     "blocks": {
@@ -33299,12 +32637,12 @@
     }
    },
    {
-    "index": 414,
+    "index": 415,
     "tag": "traffic_cone",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 196,
+     "prop": 197,
      "name": "traffic_cone"
     },
     "blocks": {
@@ -33354,12 +32692,12 @@
     }
    },
    {
-    "index": 415,
+    "index": 416,
     "tag": "traffic_cone",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 197,
+     "prop": 198,
      "name": "traffic_cone"
     },
     "blocks": {
@@ -33409,12 +32747,12 @@
     }
    },
    {
-    "index": 416,
+    "index": 417,
     "tag": "traffic_cone",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 198,
+     "prop": 199,
      "name": "traffic_cone"
     },
     "blocks": {
@@ -33464,12 +32802,12 @@
     }
    },
    {
-    "index": 417,
+    "index": 418,
     "tag": "traffic_cone",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 199,
+     "prop": 200,
      "name": "traffic_cone"
     },
     "blocks": {
@@ -33519,12 +32857,12 @@
     }
    },
    {
-    "index": 418,
+    "index": 419,
     "tag": "dig_fence",
     "surface": "wood",
     "owner": {
      "kind": "prop",
-     "prop": 200,
+     "prop": 201,
      "name": "dig_fence"
     },
     "blocks": {
@@ -33574,12 +32912,12 @@
     }
    },
    {
-    "index": 419,
+    "index": 420,
     "tag": "traffic_drum",
     "surface": "rubber",
     "owner": {
      "kind": "prop",
-     "prop": 201,
+     "prop": 202,
      "name": "traffic_drum"
     },
     "blocks": {
@@ -33629,12 +32967,12 @@
     }
    },
    {
-    "index": 420,
+    "index": 421,
     "tag": "traffic_drum",
     "surface": "rubber",
     "owner": {
      "kind": "prop",
-     "prop": 202,
+     "prop": 203,
      "name": "traffic_drum"
     },
     "blocks": {
@@ -33684,12 +33022,12 @@
     }
    },
    {
-    "index": 421,
+    "index": 422,
     "tag": "road_plates",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 203,
+     "prop": 204,
      "name": "road_plates"
     },
     "blocks": {
@@ -33739,12 +33077,12 @@
     }
    },
    {
-    "index": 422,
+    "index": 423,
     "tag": "traffic_cone",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 204,
+     "prop": 205,
      "name": "traffic_cone"
     },
     "blocks": {
@@ -33794,12 +33132,12 @@
     }
    },
    {
-    "index": 423,
+    "index": 424,
     "tag": "traffic_cone",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 205,
+     "prop": 206,
      "name": "traffic_cone"
     },
     "blocks": {
@@ -33849,12 +33187,12 @@
     }
    },
    {
-    "index": 424,
+    "index": 425,
     "tag": "crate_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 206,
+     "prop": 207,
      "name": "crate_stack"
     },
     "blocks": {
@@ -33904,12 +33242,12 @@
     }
    },
    {
-    "index": 425,
+    "index": 426,
     "tag": "fruit_crates",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 207,
+     "prop": 208,
      "name": "fruit_crates"
     },
     "blocks": {
@@ -33959,12 +33297,12 @@
     }
    },
    {
-    "index": 426,
+    "index": 427,
     "tag": "muni_meter",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 208,
+     "prop": 209,
      "name": "muni_meter"
     },
     "blocks": {
@@ -34014,12 +33352,12 @@
     }
    },
    {
-    "index": 427,
+    "index": 428,
     "tag": "muni_meter",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 209,
+     "prop": 210,
      "name": "muni_meter"
     },
     "blocks": {
@@ -34069,12 +33407,12 @@
     }
    },
    {
-    "index": 428,
+    "index": 429,
     "tag": "mailbox",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 210,
+     "prop": 211,
      "name": "mailbox"
     },
     "blocks": {
@@ -34124,12 +33462,12 @@
     }
    },
    {
-    "index": 429,
+    "index": 430,
     "tag": "bike_rack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 211,
+     "prop": 212,
      "name": "bike_rack"
     },
     "blocks": {
@@ -34179,12 +33517,12 @@
     }
    },
    {
-    "index": 430,
+    "index": 431,
     "tag": "sandwich_board",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 212,
+     "prop": 213,
      "name": "sandwich_board"
     },
     "blocks": {
@@ -34234,12 +33572,12 @@
     }
    },
    {
-    "index": 431,
+    "index": 432,
     "tag": "crate_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 213,
+     "prop": 214,
      "name": "crate_stack"
     },
     "blocks": {
@@ -34289,12 +33627,12 @@
     }
    },
    {
-    "index": 432,
+    "index": 433,
     "tag": "crate_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 214,
+     "prop": 215,
      "name": "crate_stack"
     },
     "blocks": {
@@ -34344,12 +33682,12 @@
     }
    },
    {
-    "index": 433,
+    "index": 434,
     "tag": "crate_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 215,
+     "prop": 216,
      "name": "crate_stack"
     },
     "blocks": {
@@ -34399,12 +33737,12 @@
     }
    },
    {
-    "index": 434,
+    "index": 435,
     "tag": "muni_meter",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 216,
+     "prop": 217,
      "name": "muni_meter"
     },
     "blocks": {
@@ -34454,12 +33792,12 @@
     }
    },
    {
-    "index": 435,
+    "index": 436,
     "tag": "muni_meter",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 217,
+     "prop": 218,
      "name": "muni_meter"
     },
     "blocks": {
@@ -34509,12 +33847,12 @@
     }
    },
    {
-    "index": 436,
+    "index": 437,
     "tag": "muni_meter",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 218,
+     "prop": 219,
      "name": "muni_meter"
     },
     "blocks": {
@@ -34564,12 +33902,12 @@
     }
    },
    {
-    "index": 437,
+    "index": 438,
     "tag": "newspaper_box",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 219,
+     "prop": 220,
      "name": "newspaper_box"
     },
     "blocks": {
@@ -34619,12 +33957,12 @@
     }
    },
    {
-    "index": 438,
+    "index": 439,
     "tag": "trash_can",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 220,
+     "prop": 221,
      "name": "trash_can"
     },
     "blocks": {
@@ -34674,12 +34012,12 @@
     }
    },
    {
-    "index": 439,
+    "index": 440,
     "tag": "cardboard_bale",
     "surface": "cloth",
     "owner": {
      "kind": "prop",
-     "prop": 221,
+     "prop": 222,
      "name": "cardboard_bale"
     },
     "blocks": {
@@ -34729,12 +34067,12 @@
     }
    },
    {
-    "index": 440,
+    "index": 441,
     "tag": "fish_boxes",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 222,
+     "prop": 223,
      "name": "fish_boxes"
     },
     "blocks": {
@@ -34784,12 +34122,12 @@
     }
    },
    {
-    "index": 441,
+    "index": 442,
     "tag": "grease_bin",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 223,
+     "prop": 224,
      "name": "grease_bin"
     },
     "blocks": {
@@ -34839,12 +34177,12 @@
     }
    },
    {
-    "index": 442,
+    "index": 443,
     "tag": "ac_unit",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 224,
+     "prop": 225,
      "name": "ac_unit"
     },
     "blocks": {
@@ -34894,12 +34232,12 @@
     }
    },
    {
-    "index": 443,
+    "index": 444,
     "tag": "trash_bags",
     "surface": "cloth",
     "owner": {
      "kind": "prop",
-     "prop": 225,
+     "prop": 226,
      "name": "trash_bags"
     },
     "blocks": {
@@ -34949,12 +34287,12 @@
     }
    },
    {
-    "index": 444,
+    "index": 445,
     "tag": "fish_boxes",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 226,
+     "prop": 227,
      "name": "fish_boxes"
     },
     "blocks": {
@@ -35004,12 +34342,12 @@
     }
    },
    {
-    "index": 445,
+    "index": 446,
     "tag": "cardboard_bale",
     "surface": "cloth",
     "owner": {
      "kind": "prop",
-     "prop": 227,
+     "prop": 228,
      "name": "cardboard_bale"
     },
     "blocks": {
@@ -35059,12 +34397,12 @@
     }
    },
    {
-    "index": 446,
+    "index": 447,
     "tag": "trash_bags",
     "surface": "cloth",
     "owner": {
      "kind": "prop",
-     "prop": 228,
+     "prop": 229,
      "name": "trash_bags"
     },
     "blocks": {
@@ -35114,12 +34452,12 @@
     }
    },
    {
-    "index": 447,
+    "index": 448,
     "tag": "grease_bin",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 229,
+     "prop": 230,
      "name": "grease_bin"
     },
     "blocks": {
@@ -35169,12 +34507,12 @@
     }
    },
    {
-    "index": 448,
+    "index": 449,
     "tag": "exhaust_fan",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 230,
+     "prop": 231,
      "name": "exhaust_fan"
     },
     "blocks": {
@@ -35224,12 +34562,12 @@
     }
    },
    {
-    "index": 449,
+    "index": 450,
     "tag": "exhaust_fan",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 231,
+     "prop": 232,
      "name": "exhaust_fan"
     },
     "blocks": {
@@ -35279,12 +34617,12 @@
     }
    },
    {
-    "index": 450,
+    "index": 451,
     "tag": "exhaust_fan",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 232,
+     "prop": 233,
      "name": "exhaust_fan"
     },
     "blocks": {
@@ -35334,12 +34672,12 @@
     }
    },
    {
-    "index": 451,
+    "index": 452,
     "tag": "fish_boxes",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 233,
+     "prop": 234,
      "name": "fish_boxes"
     },
     "blocks": {
@@ -35389,12 +34727,12 @@
     }
    },
    {
-    "index": 452,
+    "index": 453,
     "tag": "cardboard_bale",
     "surface": "cloth",
     "owner": {
      "kind": "prop",
-     "prop": 234,
+     "prop": 235,
      "name": "cardboard_bale"
     },
     "blocks": {
@@ -35444,12 +34782,12 @@
     }
    },
    {
-    "index": 453,
+    "index": 454,
     "tag": "grease_bin",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 235,
+     "prop": 236,
      "name": "grease_bin"
     },
     "blocks": {
@@ -35499,12 +34837,12 @@
     }
    },
    {
-    "index": 454,
+    "index": 455,
     "tag": "ac_unit",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 236,
+     "prop": 237,
      "name": "ac_unit"
     },
     "blocks": {
@@ -35554,12 +34892,12 @@
     }
    },
    {
-    "index": 455,
+    "index": 456,
     "tag": "trash_bags",
     "surface": "cloth",
     "owner": {
      "kind": "prop",
-     "prop": 237,
+     "prop": 238,
      "name": "trash_bags"
     },
     "blocks": {
@@ -35609,12 +34947,12 @@
     }
    },
    {
-    "index": 456,
+    "index": 457,
     "tag": "fish_boxes",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 238,
+     "prop": 239,
      "name": "fish_boxes"
     },
     "blocks": {
@@ -35664,12 +35002,12 @@
     }
    },
    {
-    "index": 457,
+    "index": 458,
     "tag": "cardboard_bale",
     "surface": "cloth",
     "owner": {
      "kind": "prop",
-     "prop": 239,
+     "prop": 240,
      "name": "cardboard_bale"
     },
     "blocks": {
@@ -35719,12 +35057,12 @@
     }
    },
    {
-    "index": 458,
+    "index": 459,
     "tag": "exhaust_fan",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 240,
+     "prop": 241,
      "name": "exhaust_fan"
     },
     "blocks": {
@@ -35774,12 +35112,12 @@
     }
    },
    {
-    "index": 459,
+    "index": 460,
     "tag": "exhaust_fan",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 241,
+     "prop": 242,
      "name": "exhaust_fan"
     },
     "blocks": {
@@ -35829,12 +35167,12 @@
     }
    },
    {
-    "index": 460,
+    "index": 461,
     "tag": "exhaust_fan",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 242,
+     "prop": 243,
      "name": "exhaust_fan"
     },
     "blocks": {
@@ -35884,12 +35222,12 @@
     }
    },
    {
-    "index": 461,
+    "index": 462,
     "tag": "gas_cage_frame",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 243,
+     "prop": 244,
      "name": "gas_cage_frame"
     },
     "blocks": {
@@ -35939,12 +35277,12 @@
     }
    },
    {
-    "index": 462,
+    "index": 463,
     "tag": "fish_boxes",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 244,
+     "prop": 245,
      "name": "fish_boxes"
     },
     "blocks": {
@@ -35994,12 +35332,12 @@
     }
    },
    {
-    "index": 463,
+    "index": 464,
     "tag": "cardboard_bale",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 245,
+     "prop": 246,
      "name": "cardboard_bale"
     },
     "blocks": {
@@ -36049,12 +35387,12 @@
     }
    },
    {
-    "index": 464,
+    "index": 465,
     "tag": "trash_bags",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 246,
+     "prop": 247,
      "name": "trash_bags"
     },
     "blocks": {
@@ -36104,12 +35442,12 @@
     }
    },
    {
-    "index": 465,
+    "index": 466,
     "tag": "fish_boxes",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 247,
+     "prop": 248,
      "name": "fish_boxes"
     },
     "blocks": {
@@ -36159,12 +35497,12 @@
     }
    },
    {
-    "index": 466,
+    "index": 467,
     "tag": "fish_boxes",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 248,
+     "prop": 249,
      "name": "fish_boxes"
     },
     "blocks": {
@@ -36214,12 +35552,12 @@
     }
    },
    {
-    "index": 467,
+    "index": 468,
     "tag": "produce_crates",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 249,
+     "prop": 250,
      "name": "produce_crates"
     },
     "blocks": {
@@ -36269,12 +35607,12 @@
     }
    },
    {
-    "index": 468,
+    "index": 469,
     "tag": "fish_boxes",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 250,
+     "prop": 251,
      "name": "fish_boxes"
     },
     "blocks": {
@@ -36324,12 +35662,12 @@
     }
    },
    {
-    "index": 469,
+    "index": 470,
     "tag": "produce_crates",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 251,
+     "prop": 252,
      "name": "produce_crates"
     },
     "blocks": {
@@ -36379,12 +35717,12 @@
     }
    },
    {
-    "index": 470,
+    "index": 471,
     "tag": "fish_boxes",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 252,
+     "prop": 253,
      "name": "fish_boxes"
     },
     "blocks": {
@@ -36434,12 +35772,12 @@
     }
    },
    {
-    "index": 471,
+    "index": 472,
     "tag": "produce_crates",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 253,
+     "prop": 254,
      "name": "produce_crates"
     },
     "blocks": {
@@ -36489,12 +35827,12 @@
     }
    },
    {
-    "index": 472,
+    "index": 473,
     "tag": "hand_truck",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 254,
+     "prop": 255,
      "name": "hand_truck"
     },
     "blocks": {
@@ -36544,12 +35882,12 @@
     }
    },
    {
-    "index": 473,
+    "index": 474,
     "tag": "scale_stand",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 255,
+     "prop": 256,
      "name": "scale_stand"
     },
     "blocks": {
@@ -36599,12 +35937,12 @@
     }
    },
    {
-    "index": 474,
+    "index": 475,
     "tag": "roof_vent",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 256,
+     "prop": 257,
      "name": "roof_vent"
     },
     "blocks": {
@@ -36654,12 +35992,12 @@
     }
    },
    {
-    "index": 475,
+    "index": 476,
     "tag": "roof_vent",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 257,
+     "prop": 258,
      "name": "roof_vent"
     },
     "blocks": {
@@ -36709,12 +36047,12 @@
     }
    },
    {
-    "index": 476,
+    "index": 477,
     "tag": "roof_vent",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 258,
+     "prop": 259,
      "name": "roof_vent"
     },
     "blocks": {
@@ -36764,12 +36102,12 @@
     }
    },
    {
-    "index": 477,
+    "index": 478,
     "tag": "roof_vent",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 259,
+     "prop": 260,
      "name": "roof_vent"
     },
     "blocks": {
@@ -36819,12 +36157,12 @@
     }
    },
    {
-    "index": 478,
+    "index": 479,
     "tag": "roof_ac",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 260,
+     "prop": 261,
      "name": "roof_ac"
     },
     "blocks": {
@@ -36874,12 +36212,12 @@
     }
    },
    {
-    "index": 479,
+    "index": 480,
     "tag": "roof_ac",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 261,
+     "prop": 262,
      "name": "roof_ac"
     },
     "blocks": {
@@ -36929,12 +36267,12 @@
     }
    },
    {
-    "index": 480,
+    "index": 481,
     "tag": "antenna_mast",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 262,
+     "prop": 263,
      "name": "antenna_mast"
     },
     "blocks": {
@@ -36984,12 +36322,12 @@
     }
    },
    {
-    "index": 481,
+    "index": 482,
     "tag": "roof_vent",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 263,
+     "prop": 264,
      "name": "roof_vent"
     },
     "blocks": {
@@ -37039,12 +36377,12 @@
     }
    },
    {
-    "index": 482,
+    "index": 483,
     "tag": "roof_vent",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 264,
+     "prop": 265,
      "name": "roof_vent"
     },
     "blocks": {
@@ -37094,12 +36432,12 @@
     }
    },
    {
-    "index": 483,
+    "index": 484,
     "tag": "roof_ac",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 265,
+     "prop": 266,
      "name": "roof_ac"
     },
     "blocks": {
@@ -37149,12 +36487,12 @@
     }
    },
    {
-    "index": 484,
+    "index": 485,
     "tag": "exhaust_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 266,
+     "prop": 267,
      "name": "exhaust_stack"
     },
     "blocks": {
@@ -37204,12 +36542,12 @@
     }
    },
    {
-    "index": 485,
+    "index": 486,
     "tag": "roof_ac",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 267,
+     "prop": 268,
      "name": "roof_ac"
     },
     "blocks": {
@@ -37259,12 +36597,12 @@
     }
    },
    {
-    "index": 486,
+    "index": 487,
     "tag": "trash_can",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 268,
+     "prop": 269,
      "name": "trash_can"
     },
     "blocks": {
@@ -37314,12 +36652,12 @@
     }
    },
    {
-    "index": 487,
+    "index": 488,
     "tag": "trash_can",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 269,
+     "prop": 270,
      "name": "trash_can"
     },
     "blocks": {
@@ -37369,12 +36707,12 @@
     }
    },
    {
-    "index": 488,
+    "index": 489,
     "tag": "bike_rack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 270,
+     "prop": 271,
      "name": "bike_rack"
     },
     "blocks": {
@@ -37424,12 +36762,12 @@
     }
    },
    {
-    "index": 489,
+    "index": 490,
     "tag": "chess_table",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 271,
+     "prop": 272,
      "name": "chess_table"
     },
     "blocks": {
@@ -37479,12 +36817,12 @@
     }
    },
    {
-    "index": 490,
+    "index": 491,
     "tag": "chess_table",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 272,
+     "prop": 273,
      "name": "chess_table"
     },
     "blocks": {
@@ -37534,12 +36872,12 @@
     }
    },
    {
-    "index": 491,
+    "index": 492,
     "tag": "planter",
     "surface": "concrete",
     "owner": {
      "kind": "prop",
-     "prop": 273,
+     "prop": 274,
      "name": "planter"
     },
     "blocks": {
@@ -37589,12 +36927,12 @@
     }
    },
    {
-    "index": 492,
+    "index": 493,
     "tag": "chair_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 274,
+     "prop": 275,
      "name": "chair_stack"
     },
     "blocks": {
@@ -37644,12 +36982,12 @@
     }
    },
    {
-    "index": 493,
+    "index": 494,
     "tag": "chair_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 275,
+     "prop": 276,
      "name": "chair_stack"
     },
     "blocks": {
@@ -37699,12 +37037,12 @@
     }
    },
    {
-    "index": 494,
+    "index": 495,
     "tag": "chair_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 276,
+     "prop": 277,
      "name": "chair_stack"
     },
     "blocks": {
@@ -37754,12 +37092,12 @@
     }
    },
    {
-    "index": 495,
+    "index": 496,
     "tag": "chair_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 277,
+     "prop": 278,
      "name": "chair_stack"
     },
     "blocks": {
@@ -37809,12 +37147,12 @@
     }
    },
    {
-    "index": 496,
+    "index": 497,
     "tag": "tape_shelf",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 278,
+     "prop": 279,
      "name": "tape_shelf"
     },
     "blocks": {
@@ -37864,12 +37202,12 @@
     }
    },
    {
-    "index": 497,
+    "index": 498,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 279,
+     "prop": 280,
      "name": "sign_pole"
     },
     "blocks": {
@@ -37919,12 +37257,12 @@
     }
    },
    {
-    "index": 498,
+    "index": 499,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 280,
+     "prop": 281,
      "name": "sign_pole"
     },
     "blocks": {
@@ -37974,12 +37312,12 @@
     }
    },
    {
-    "index": 499,
+    "index": 500,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 281,
+     "prop": 282,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38029,12 +37367,12 @@
     }
    },
    {
-    "index": 500,
+    "index": 501,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 282,
+     "prop": 283,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38084,12 +37422,12 @@
     }
    },
    {
-    "index": 501,
+    "index": 502,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 283,
+     "prop": 284,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38139,12 +37477,12 @@
     }
    },
    {
-    "index": 502,
+    "index": 503,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 284,
+     "prop": 285,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38194,12 +37532,12 @@
     }
    },
    {
-    "index": 503,
+    "index": 504,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 285,
+     "prop": 286,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38249,12 +37587,12 @@
     }
    },
    {
-    "index": 504,
+    "index": 505,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 286,
+     "prop": 287,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38304,12 +37642,12 @@
     }
    },
    {
-    "index": 505,
+    "index": 506,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 287,
+     "prop": 288,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38359,12 +37697,12 @@
     }
    },
    {
-    "index": 506,
+    "index": 507,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 288,
+     "prop": 289,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38414,12 +37752,12 @@
     }
    },
    {
-    "index": 507,
+    "index": 508,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 289,
+     "prop": 290,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38469,12 +37807,12 @@
     }
    },
    {
-    "index": 508,
+    "index": 509,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 290,
+     "prop": 291,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38524,12 +37862,12 @@
     }
    },
    {
-    "index": 509,
+    "index": 510,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 291,
+     "prop": 292,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38579,12 +37917,12 @@
     }
    },
    {
-    "index": 510,
+    "index": 511,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 292,
+     "prop": 293,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38634,12 +37972,12 @@
     }
    },
    {
-    "index": 511,
+    "index": 512,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 293,
+     "prop": 294,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38689,12 +38027,12 @@
     }
    },
    {
-    "index": 512,
+    "index": 513,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 294,
+     "prop": 295,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38744,12 +38082,12 @@
     }
    },
    {
-    "index": 513,
+    "index": 514,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 295,
+     "prop": 296,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38799,12 +38137,12 @@
     }
    },
    {
-    "index": 514,
+    "index": 515,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 296,
+     "prop": 297,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38854,12 +38192,12 @@
     }
    },
    {
-    "index": 515,
+    "index": 516,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 297,
+     "prop": 298,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38909,12 +38247,12 @@
     }
    },
    {
-    "index": 516,
+    "index": 517,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 298,
+     "prop": 299,
      "name": "sign_pole"
     },
     "blocks": {
@@ -38964,12 +38302,12 @@
     }
    },
    {
-    "index": 517,
+    "index": 518,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 299,
+     "prop": 300,
      "name": "sign_pole"
     },
     "blocks": {
@@ -39019,12 +38357,12 @@
     }
    },
    {
-    "index": 518,
+    "index": 519,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 300,
+     "prop": 301,
      "name": "sign_pole"
     },
     "blocks": {
@@ -39074,12 +38412,12 @@
     }
    },
    {
-    "index": 519,
+    "index": 520,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 301,
+     "prop": 302,
      "name": "sign_pole"
     },
     "blocks": {
@@ -39129,12 +38467,12 @@
     }
    },
    {
-    "index": 520,
+    "index": 521,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 302,
+     "prop": 303,
      "name": "sign_pole"
     },
     "blocks": {
@@ -39184,12 +38522,12 @@
     }
    },
    {
-    "index": 521,
+    "index": 522,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 303,
+     "prop": 304,
      "name": "sign_pole"
     },
     "blocks": {
@@ -39239,12 +38577,12 @@
     }
    },
    {
-    "index": 522,
+    "index": 523,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 304,
+     "prop": 305,
      "name": "sign_pole"
     },
     "blocks": {
@@ -39294,12 +38632,12 @@
     }
    },
    {
-    "index": 523,
+    "index": 524,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 305,
+     "prop": 306,
      "name": "sign_pole"
     },
     "blocks": {
@@ -39349,12 +38687,12 @@
     }
    },
    {
-    "index": 524,
+    "index": 525,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 306,
+     "prop": 307,
      "name": "sign_pole"
     },
     "blocks": {
@@ -39404,12 +38742,12 @@
     }
    },
    {
-    "index": 525,
+    "index": 526,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 307,
+     "prop": 308,
      "name": "sign_pole"
     },
     "blocks": {
@@ -39459,12 +38797,12 @@
     }
    },
    {
-    "index": 526,
+    "index": 527,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 308,
+     "prop": 309,
      "name": "sign_pole"
     },
     "blocks": {
@@ -39514,12 +38852,12 @@
     }
    },
    {
-    "index": 527,
+    "index": 528,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 309,
+     "prop": 310,
      "name": "sign_pole"
     },
     "blocks": {
@@ -39569,12 +38907,12 @@
     }
    },
    {
-    "index": 528,
+    "index": 529,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 310,
+     "prop": 311,
      "name": "sign_pole"
     },
     "blocks": {
@@ -39624,12 +38962,12 @@
     }
    },
    {
-    "index": 529,
+    "index": 530,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 311,
+     "prop": 312,
      "name": "sign_pole"
     },
     "blocks": {
@@ -39679,12 +39017,12 @@
     }
    },
    {
-    "index": 530,
+    "index": 531,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 312,
+     "prop": 313,
      "name": "sign_pole"
     },
     "blocks": {
@@ -39734,12 +39072,67 @@
     }
    },
    {
-    "index": 531,
+    "index": 532,
     "tag": "sign_pole",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 313,
+     "prop": 314,
+     "name": "sign_pole"
+    },
+    "blocks": {
+     "movement": true,
+     "shots": true,
+     "nav": true
+    },
+    "flags": {
+     "bulletOnly": false,
+     "playerOnly": false,
+     "noNav": false
+    },
+    "orientedBox": null,
+    "web": {
+     "min": {
+      "x": 16.064,
+      "y": 0.15,
+      "z": 25.962
+     },
+     "max": {
+      "x": 16.14,
+      "y": 2.85,
+      "z": 26.038
+     }
+    },
+    "ue": {
+     "min": {
+      "X": 1606.4,
+      "Y": 2596.2,
+      "Z": 15.0
+     },
+     "max": {
+      "X": 1614.0,
+      "Y": 2603.8,
+      "Z": 285.0
+     },
+     "center": {
+      "X": 1610.2,
+      "Y": 2600.0,
+      "Z": 150.0
+     },
+     "extent": {
+      "X": 3.8,
+      "Y": 3.8,
+      "Z": 135.0
+     }
+    }
+   },
+   {
+    "index": 533,
+    "tag": "sign_pole",
+    "surface": "metal",
+    "owner": {
+     "kind": "prop",
+     "prop": 315,
      "name": "sign_pole"
     },
     "blocks": {
@@ -39789,12 +39182,12 @@
     }
    },
    {
-    "index": 532,
+    "index": 534,
     "tag": "shed_post",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 314,
+     "prop": 316,
      "name": "shed_post"
     },
     "blocks": {
@@ -39844,12 +39237,12 @@
     }
    },
    {
-    "index": 533,
+    "index": 535,
     "tag": "shed_post",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 315,
+     "prop": 317,
      "name": "shed_post"
     },
     "blocks": {
@@ -39899,12 +39292,12 @@
     }
    },
    {
-    "index": 534,
+    "index": 536,
     "tag": "shed_post",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 316,
+     "prop": 318,
      "name": "shed_post"
     },
     "blocks": {
@@ -39954,12 +39347,12 @@
     }
    },
    {
-    "index": 535,
+    "index": 537,
     "tag": "shed_post",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 317,
+     "prop": 319,
      "name": "shed_post"
     },
     "blocks": {
@@ -40009,12 +39402,12 @@
     }
    },
    {
-    "index": 536,
+    "index": 538,
     "tag": "shed_post",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 318,
+     "prop": 320,
      "name": "shed_post"
     },
     "blocks": {
@@ -40064,12 +39457,12 @@
     }
    },
    {
-    "index": 537,
+    "index": 539,
     "tag": "newspaper_box",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 319,
+     "prop": 321,
      "name": "newspaper_box"
     },
     "blocks": {
@@ -40119,12 +39512,12 @@
     }
    },
    {
-    "index": 538,
+    "index": 540,
     "tag": "newspaper_box",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 320,
+     "prop": 322,
      "name": "newspaper_box"
     },
     "blocks": {
@@ -40174,12 +39567,12 @@
     }
    },
    {
-    "index": 539,
+    "index": 541,
     "tag": "fire_hydrant",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 321,
+     "prop": 323,
      "name": "fire_hydrant"
     },
     "blocks": {
@@ -40229,12 +39622,12 @@
     }
    },
    {
-    "index": 540,
+    "index": 542,
     "tag": "newspaper_box",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 322,
+     "prop": 324,
      "name": "newspaper_box"
     },
     "blocks": {
@@ -40284,12 +39677,12 @@
     }
    },
    {
-    "index": 541,
+    "index": 543,
     "tag": "newspaper_box",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 323,
+     "prop": 325,
      "name": "newspaper_box"
     },
     "blocks": {
@@ -40339,12 +39732,12 @@
     }
    },
    {
-    "index": 542,
+    "index": 544,
     "tag": "newspaper_box",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 324,
+     "prop": 326,
      "name": "newspaper_box"
     },
     "blocks": {
@@ -40394,12 +39787,12 @@
     }
    },
    {
-    "index": 543,
+    "index": 545,
     "tag": "planter",
     "surface": "concrete",
     "owner": {
      "kind": "prop",
-     "prop": 325,
+     "prop": 327,
      "name": "planter"
     },
     "blocks": {
@@ -40449,12 +39842,12 @@
     }
    },
    {
-    "index": 544,
+    "index": 546,
     "tag": "crate_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 326,
+     "prop": 328,
      "name": "crate_stack"
     },
     "blocks": {
@@ -40504,12 +39897,12 @@
     }
    },
    {
-    "index": 545,
+    "index": 547,
     "tag": "crate_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 327,
+     "prop": 329,
      "name": "crate_stack"
     },
     "blocks": {
@@ -40559,12 +39952,12 @@
     }
    },
    {
-    "index": 546,
+    "index": 548,
     "tag": "crate_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 328,
+     "prop": 330,
      "name": "crate_stack"
     },
     "blocks": {
@@ -40614,12 +40007,12 @@
     }
    },
    {
-    "index": 547,
+    "index": 549,
     "tag": "crate_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 329,
+     "prop": 331,
      "name": "crate_stack"
     },
     "blocks": {
@@ -40669,12 +40062,12 @@
     }
    },
    {
-    "index": 548,
+    "index": 550,
     "tag": "milk_crates",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 330,
+     "prop": 332,
      "name": "milk_crates"
     },
     "blocks": {
@@ -40724,12 +40117,12 @@
     }
    },
    {
-    "index": 549,
+    "index": 551,
     "tag": "milk_crates",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 331,
+     "prop": 333,
      "name": "milk_crates"
     },
     "blocks": {
@@ -40779,12 +40172,12 @@
     }
    },
    {
-    "index": 550,
+    "index": 552,
     "tag": "milk_crates",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 332,
+     "prop": 334,
      "name": "milk_crates"
     },
     "blocks": {
@@ -40834,12 +40227,12 @@
     }
    },
    {
-    "index": 551,
+    "index": 553,
     "tag": "milk_crates",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 333,
+     "prop": 335,
      "name": "milk_crates"
     },
     "blocks": {
@@ -40889,12 +40282,12 @@
     }
    },
    {
-    "index": 552,
+    "index": 554,
     "tag": "milk_crates",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 334,
+     "prop": 336,
      "name": "milk_crates"
     },
     "blocks": {
@@ -40944,12 +40337,12 @@
     }
    },
    {
-    "index": 553,
+    "index": 555,
     "tag": "styrofoam_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 335,
+     "prop": 337,
      "name": "styrofoam_stack"
     },
     "blocks": {
@@ -40999,12 +40392,12 @@
     }
    },
    {
-    "index": 554,
+    "index": 556,
     "tag": "styrofoam_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 336,
+     "prop": 338,
      "name": "styrofoam_stack"
     },
     "blocks": {
@@ -41054,12 +40447,12 @@
     }
    },
    {
-    "index": 555,
+    "index": 557,
     "tag": "styrofoam_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 337,
+     "prop": 339,
      "name": "styrofoam_stack"
     },
     "blocks": {
@@ -41109,12 +40502,12 @@
     }
    },
    {
-    "index": 556,
+    "index": 558,
     "tag": "bucket_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 338,
+     "prop": 340,
      "name": "bucket_stack"
     },
     "blocks": {
@@ -41164,12 +40557,12 @@
     }
    },
    {
-    "index": 557,
+    "index": 559,
     "tag": "bucket_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 339,
+     "prop": 341,
      "name": "bucket_stack"
     },
     "blocks": {
@@ -41219,12 +40612,12 @@
     }
    },
    {
-    "index": 558,
+    "index": 560,
     "tag": "bucket_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 340,
+     "prop": 342,
      "name": "bucket_stack"
     },
     "blocks": {
@@ -41274,12 +40667,12 @@
     }
    },
    {
-    "index": 559,
+    "index": 561,
     "tag": "bucket_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 341,
+     "prop": 343,
      "name": "bucket_stack"
     },
     "blocks": {
@@ -41329,12 +40722,12 @@
     }
    },
    {
-    "index": 560,
+    "index": 562,
     "tag": "bucket_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 342,
+     "prop": 344,
      "name": "bucket_stack"
     },
     "blocks": {
@@ -41384,12 +40777,12 @@
     }
    },
    {
-    "index": 561,
+    "index": 563,
     "tag": "cardboard_bale",
     "surface": "cloth",
     "owner": {
      "kind": "prop",
-     "prop": 343,
+     "prop": 345,
      "name": "cardboard_bale"
     },
     "blocks": {
@@ -41439,12 +40832,12 @@
     }
    },
    {
-    "index": 562,
+    "index": 564,
     "tag": "cardboard_bale",
     "surface": "cloth",
     "owner": {
      "kind": "prop",
-     "prop": 344,
+     "prop": 346,
      "name": "cardboard_bale"
     },
     "blocks": {
@@ -41494,12 +40887,12 @@
     }
    },
    {
-    "index": 563,
+    "index": 565,
     "tag": "cardboard_bale",
     "surface": "cloth",
     "owner": {
      "kind": "prop",
-     "prop": 345,
+     "prop": 347,
      "name": "cardboard_bale"
     },
     "blocks": {
@@ -41549,12 +40942,12 @@
     }
    },
    {
-    "index": 564,
+    "index": 566,
     "tag": "cardboard_bale",
     "surface": "cloth",
     "owner": {
      "kind": "prop",
-     "prop": 346,
+     "prop": 348,
      "name": "cardboard_bale"
     },
     "blocks": {
@@ -41604,12 +40997,12 @@
     }
    },
    {
-    "index": 565,
+    "index": 567,
     "tag": "pallet_single",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 347,
+     "prop": 349,
      "name": "pallet_single"
     },
     "blocks": {
@@ -41659,12 +41052,12 @@
     }
    },
    {
-    "index": 566,
+    "index": 568,
     "tag": "traffic_drum",
     "surface": "rubber",
     "owner": {
      "kind": "prop",
-     "prop": 348,
+     "prop": 350,
      "name": "traffic_drum"
     },
     "blocks": {
@@ -41714,12 +41107,12 @@
     }
    },
    {
-    "index": 567,
+    "index": 569,
     "tag": "traffic_drum",
     "surface": "rubber",
     "owner": {
      "kind": "prop",
-     "prop": 349,
+     "prop": 351,
      "name": "traffic_drum"
     },
     "blocks": {
@@ -41769,12 +41162,12 @@
     }
    },
    {
-    "index": 568,
+    "index": 570,
     "tag": "traffic_drum",
     "surface": "rubber",
     "owner": {
      "kind": "prop",
-     "prop": 350,
+     "prop": 352,
      "name": "traffic_drum"
     },
     "blocks": {
@@ -41824,12 +41217,12 @@
     }
    },
    {
-    "index": 569,
+    "index": 571,
     "tag": "traffic_drum",
     "surface": "rubber",
     "owner": {
      "kind": "prop",
-     "prop": 351,
+     "prop": 353,
      "name": "traffic_drum"
     },
     "blocks": {
@@ -41879,12 +41272,12 @@
     }
    },
    {
-    "index": 570,
+    "index": 572,
     "tag": "traffic_drum",
     "surface": "rubber",
     "owner": {
      "kind": "prop",
-     "prop": 352,
+     "prop": 354,
      "name": "traffic_drum"
     },
     "blocks": {
@@ -41934,116 +41327,6 @@
     }
    },
    {
-    "index": 571,
-    "tag": "traffic_cone",
-    "surface": "metal",
-    "owner": {
-     "kind": "prop",
-     "prop": 353,
-     "name": "traffic_cone"
-    },
-    "blocks": {
-     "movement": true,
-     "shots": true,
-     "nav": true
-    },
-    "flags": {
-     "bulletOnly": false,
-     "playerOnly": false,
-     "noNav": false
-    },
-    "orientedBox": null,
-    "web": {
-     "min": {
-      "x": 20.83,
-      "y": 0.0,
-      "z": -28.07
-     },
-     "max": {
-      "x": 21.17,
-      "y": 0.7,
-      "z": -27.73
-     }
-    },
-    "ue": {
-     "min": {
-      "X": 2083.0,
-      "Y": -2807.0,
-      "Z": 0.0
-     },
-     "max": {
-      "X": 2117.0,
-      "Y": -2773.0,
-      "Z": 70.0
-     },
-     "center": {
-      "X": 2100.0,
-      "Y": -2790.0,
-      "Z": 35.0
-     },
-     "extent": {
-      "X": 17.0,
-      "Y": 17.0,
-      "Z": 35.0
-     }
-    }
-   },
-   {
-    "index": 572,
-    "tag": "traffic_cone",
-    "surface": "metal",
-    "owner": {
-     "kind": "prop",
-     "prop": 354,
-     "name": "traffic_cone"
-    },
-    "blocks": {
-     "movement": true,
-     "shots": true,
-     "nav": true
-    },
-    "flags": {
-     "bulletOnly": false,
-     "playerOnly": false,
-     "noNav": false
-    },
-    "orientedBox": null,
-    "web": {
-     "min": {
-      "x": 20.83,
-      "y": 0.0,
-      "z": -24.87
-     },
-     "max": {
-      "x": 21.17,
-      "y": 0.7,
-      "z": -24.53
-     }
-    },
-    "ue": {
-     "min": {
-      "X": 2083.0,
-      "Y": -2487.0,
-      "Z": 0.0
-     },
-     "max": {
-      "X": 2117.0,
-      "Y": -2453.0,
-      "Z": 70.0
-     },
-     "center": {
-      "X": 2100.0,
-      "Y": -2470.0,
-      "Z": 35.0
-     },
-     "extent": {
-      "X": 17.0,
-      "Y": 17.0,
-      "Z": 35.0
-     }
-    }
-   },
-   {
     "index": 573,
     "tag": "traffic_cone",
     "surface": "metal",
@@ -42065,29 +41348,29 @@
     "orientedBox": null,
     "web": {
      "min": {
-      "x": 26.83,
+      "x": 20.83,
       "y": 0.0,
       "z": -28.07
      },
      "max": {
-      "x": 27.17,
+      "x": 21.17,
       "y": 0.7,
       "z": -27.73
      }
     },
     "ue": {
      "min": {
-      "X": 2683.0,
+      "X": 2083.0,
       "Y": -2807.0,
       "Z": 0.0
      },
      "max": {
-      "X": 2717.0,
+      "X": 2117.0,
       "Y": -2773.0,
       "Z": 70.0
      },
      "center": {
-      "X": 2700.0,
+      "X": 2100.0,
       "Y": -2790.0,
       "Z": 35.0
      },
@@ -42120,6 +41403,116 @@
     "orientedBox": null,
     "web": {
      "min": {
+      "x": 20.83,
+      "y": 0.0,
+      "z": -24.87
+     },
+     "max": {
+      "x": 21.17,
+      "y": 0.7,
+      "z": -24.53
+     }
+    },
+    "ue": {
+     "min": {
+      "X": 2083.0,
+      "Y": -2487.0,
+      "Z": 0.0
+     },
+     "max": {
+      "X": 2117.0,
+      "Y": -2453.0,
+      "Z": 70.0
+     },
+     "center": {
+      "X": 2100.0,
+      "Y": -2470.0,
+      "Z": 35.0
+     },
+     "extent": {
+      "X": 17.0,
+      "Y": 17.0,
+      "Z": 35.0
+     }
+    }
+   },
+   {
+    "index": 575,
+    "tag": "traffic_cone",
+    "surface": "metal",
+    "owner": {
+     "kind": "prop",
+     "prop": 357,
+     "name": "traffic_cone"
+    },
+    "blocks": {
+     "movement": true,
+     "shots": true,
+     "nav": true
+    },
+    "flags": {
+     "bulletOnly": false,
+     "playerOnly": false,
+     "noNav": false
+    },
+    "orientedBox": null,
+    "web": {
+     "min": {
+      "x": 26.83,
+      "y": 0.0,
+      "z": -28.07
+     },
+     "max": {
+      "x": 27.17,
+      "y": 0.7,
+      "z": -27.73
+     }
+    },
+    "ue": {
+     "min": {
+      "X": 2683.0,
+      "Y": -2807.0,
+      "Z": 0.0
+     },
+     "max": {
+      "X": 2717.0,
+      "Y": -2773.0,
+      "Z": 70.0
+     },
+     "center": {
+      "X": 2700.0,
+      "Y": -2790.0,
+      "Z": 35.0
+     },
+     "extent": {
+      "X": 17.0,
+      "Y": 17.0,
+      "Z": 35.0
+     }
+    }
+   },
+   {
+    "index": 576,
+    "tag": "traffic_cone",
+    "surface": "metal",
+    "owner": {
+     "kind": "prop",
+     "prop": 358,
+     "name": "traffic_cone"
+    },
+    "blocks": {
+     "movement": true,
+     "shots": true,
+     "nav": true
+    },
+    "flags": {
+     "bulletOnly": false,
+     "playerOnly": false,
+     "noNav": false
+    },
+    "orientedBox": null,
+    "web": {
+     "min": {
       "x": 26.83,
       "y": 0.0,
       "z": -24.87
@@ -42154,12 +41547,12 @@
     }
    },
    {
-    "index": 575,
+    "index": 577,
     "tag": "alarm_pedestal",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 357,
+     "prop": 359,
      "name": "alarm_pedestal"
     },
     "blocks": {
@@ -42209,12 +41602,12 @@
     }
    },
    {
-    "index": 576,
+    "index": 578,
     "tag": "alarm_pedestal",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 358,
+     "prop": 360,
      "name": "alarm_pedestal"
     },
     "blocks": {
@@ -42264,12 +41657,12 @@
     }
    },
    {
-    "index": 577,
+    "index": 579,
     "tag": "ebike",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 359,
+     "prop": 361,
      "name": "ebike"
     },
     "blocks": {
@@ -42319,12 +41712,12 @@
     }
    },
    {
-    "index": 578,
+    "index": 580,
     "tag": "hand_truck",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 360,
+     "prop": 362,
      "name": "hand_truck"
     },
     "blocks": {
@@ -42374,12 +41767,12 @@
     }
    },
    {
-    "index": 579,
+    "index": 581,
     "tag": "hand_truck",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 361,
+     "prop": 363,
      "name": "hand_truck"
     },
     "blocks": {
@@ -42429,12 +41822,12 @@
     }
    },
    {
-    "index": 580,
+    "index": 582,
     "tag": "milk_crates",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 362,
+     "prop": 364,
      "name": "milk_crates"
     },
     "blocks": {
@@ -42484,12 +41877,12 @@
     }
    },
    {
-    "index": 581,
+    "index": 583,
     "tag": "milk_crates",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 363,
+     "prop": 365,
      "name": "milk_crates"
     },
     "blocks": {
@@ -42539,12 +41932,12 @@
     }
    },
    {
-    "index": 582,
+    "index": 584,
     "tag": "planter",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 364,
+     "prop": 366,
      "name": "planter"
     },
     "blocks": {
@@ -42594,12 +41987,12 @@
     }
    },
    {
-    "index": 583,
+    "index": 585,
     "tag": "sandwich_board",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 365,
+     "prop": 367,
      "name": "sandwich_board"
     },
     "blocks": {
@@ -42649,12 +42042,67 @@
     }
    },
    {
-    "index": 584,
+    "index": 586,
+    "tag": "crate_stack",
+    "surface": "metal",
+    "owner": {
+     "kind": "prop",
+     "prop": 368,
+     "name": "crate_stack"
+    },
+    "blocks": {
+     "movement": true,
+     "shots": true,
+     "nav": true
+    },
+    "flags": {
+     "bulletOnly": false,
+     "playerOnly": false,
+     "noNav": false
+    },
+    "orientedBox": null,
+    "web": {
+     "min": {
+      "x": 32.4,
+      "y": 0.15,
+      "z": -15.6
+     },
+     "max": {
+      "x": 33.0,
+      "y": 1.35,
+      "z": -14.05
+     }
+    },
+    "ue": {
+     "min": {
+      "X": 3240.0,
+      "Y": -1560.0,
+      "Z": 15.0
+     },
+     "max": {
+      "X": 3300.0,
+      "Y": -1405.0,
+      "Z": 135.0
+     },
+     "center": {
+      "X": 3270.0,
+      "Y": -1482.5,
+      "Z": 75.0
+     },
+     "extent": {
+      "X": 30.0,
+      "Y": 77.5,
+      "Z": 60.0
+     }
+    }
+   },
+   {
+    "index": 587,
     "tag": "milk_crates",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 366,
+     "prop": 369,
      "name": "milk_crates"
     },
     "blocks": {
@@ -42704,12 +42152,12 @@
     }
    },
    {
-    "index": 585,
+    "index": 588,
     "tag": "phone_kiosk",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 367,
+     "prop": 370,
      "name": "phone_kiosk"
     },
     "blocks": {
@@ -42759,12 +42207,12 @@
     }
    },
    {
-    "index": 586,
+    "index": 589,
     "tag": "newsstand_bundle",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 368,
+     "prop": 371,
      "name": "newsstand_bundle"
     },
     "blocks": {
@@ -42814,12 +42262,12 @@
     }
    },
    {
-    "index": 587,
+    "index": 590,
     "tag": "dig_fence",
     "surface": "wood",
     "owner": {
      "kind": "prop",
-     "prop": 369,
+     "prop": 372,
      "name": "dig_fence"
     },
     "blocks": {
@@ -42869,12 +42317,12 @@
     }
    },
    {
-    "index": 588,
+    "index": 591,
     "tag": "barricade",
     "surface": "wood",
     "owner": {
      "kind": "prop",
-     "prop": 370,
+     "prop": 373,
      "name": "barricade"
     },
     "blocks": {
@@ -42924,12 +42372,12 @@
     }
    },
    {
-    "index": 589,
+    "index": 592,
     "tag": "dig_fence",
     "surface": "wood",
     "owner": {
      "kind": "prop",
-     "prop": 371,
+     "prop": 374,
      "name": "dig_fence"
     },
     "blocks": {
@@ -42979,12 +42427,12 @@
     }
    },
    {
-    "index": 590,
+    "index": 593,
     "tag": "dig_fence",
     "surface": "wood",
     "owner": {
      "kind": "prop",
-     "prop": 372,
+     "prop": 375,
      "name": "dig_fence"
     },
     "blocks": {
@@ -43034,12 +42482,12 @@
     }
    },
    {
-    "index": 591,
+    "index": 594,
     "tag": "box_pile",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 373,
+     "prop": 376,
      "name": "box_pile"
     },
     "blocks": {
@@ -43089,12 +42537,12 @@
     }
    },
    {
-    "index": 592,
+    "index": 595,
     "tag": "chair_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 374,
+     "prop": 377,
      "name": "chair_stack"
     },
     "blocks": {
@@ -43144,12 +42592,12 @@
     }
    },
    {
-    "index": 593,
+    "index": 596,
     "tag": "chair_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 375,
+     "prop": 378,
      "name": "chair_stack"
     },
     "blocks": {
@@ -43199,12 +42647,12 @@
     }
    },
    {
-    "index": 594,
+    "index": 597,
     "tag": "chair_stack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 376,
+     "prop": 379,
      "name": "chair_stack"
     },
     "blocks": {
@@ -43254,12 +42702,12 @@
     }
    },
    {
-    "index": 595,
+    "index": 598,
     "tag": "kitchen_rack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 377,
+     "prop": 380,
      "name": "kitchen_rack"
     },
     "blocks": {
@@ -43309,12 +42757,12 @@
     }
    },
    {
-    "index": 596,
+    "index": 599,
     "tag": "kitchen_rack",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 378,
+     "prop": 381,
      "name": "kitchen_rack"
     },
     "blocks": {
@@ -43364,12 +42812,12 @@
     }
    },
    {
-    "index": 597,
+    "index": 600,
     "tag": "flour_sacks",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 379,
+     "prop": 382,
      "name": "flour_sacks"
     },
     "blocks": {
@@ -43419,12 +42867,12 @@
     }
    },
    {
-    "index": 598,
+    "index": 601,
     "tag": "flour_sacks",
     "surface": "metal",
     "owner": {
      "kind": "prop",
-     "prop": 380,
+     "prop": 383,
      "name": "flour_sacks"
     },
     "blocks": {
@@ -48006,6 +47454,31 @@
     "what": "a vendor's folding stool",
     "web": {
      "pos": {
+      "x": -6.6,
+      "y": 0.15,
+      "z": -17.3
+     },
+     "rotationY": 0.0
+    },
+    "ue": {
+     "pos": {
+      "X": -660.0,
+      "Y": -1730.0,
+      "Z": 15.0
+     },
+     "yaw": -0.0
+    }
+   },
+   {
+    "index": 189,
+    "name": "vendor_stool",
+    "colliders": [
+     407
+    ],
+    "group": "vendor",
+    "what": "a vendor's folding stool",
+    "web": {
+     "pos": {
       "x": 2.0,
       "y": 0.15,
       "z": -17.3
@@ -48022,10 +47495,10 @@
     }
    },
    {
-    "index": 189,
+    "index": 190,
     "name": "vendor_stool",
     "colliders": [
-     407
+     408
     ],
     "group": "vendor",
     "what": "a vendor's folding stool",
@@ -48047,10 +47520,10 @@
     }
    },
    {
-    "index": 190,
+    "index": 191,
     "name": "newspaper_box",
     "colliders": [
-     408
+     409
     ],
     "group": "street",
     "web": {
@@ -48071,10 +47544,10 @@
     }
    },
    {
-    "index": 191,
+    "index": 192,
     "name": "newspaper_box",
     "colliders": [
-     409
+     410
     ],
     "group": "street",
     "web": {
@@ -48095,10 +47568,10 @@
     }
    },
    {
-    "index": 192,
+    "index": 193,
     "name": "steam_chimney",
     "colliders": [
-     410
+     411
     ],
     "group": "street",
     "what": "an orange-and-white steam chimney over a manhole",
@@ -48120,10 +47593,10 @@
     }
    },
    {
-    "index": 193,
+    "index": 194,
     "name": "steam_chimney",
     "colliders": [
-     411
+     412
     ],
     "group": "street",
     "what": "an orange-and-white steam chimney over a manhole",
@@ -48145,10 +47618,10 @@
     }
    },
    {
-    "index": 194,
+    "index": 195,
     "name": "traffic_cone",
     "colliders": [
-     412
+     413
     ],
     "group": "street",
     "web": {
@@ -48169,10 +47642,10 @@
     }
    },
    {
-    "index": 195,
+    "index": 196,
     "name": "traffic_cone",
     "colliders": [
-     413
+     414
     ],
     "group": "street",
     "web": {
@@ -48193,10 +47666,10 @@
     }
    },
    {
-    "index": 196,
+    "index": 197,
     "name": "traffic_cone",
     "colliders": [
-     414
+     415
     ],
     "group": "street",
     "web": {
@@ -48217,10 +47690,10 @@
     }
    },
    {
-    "index": 197,
+    "index": 198,
     "name": "traffic_cone",
     "colliders": [
-     415
+     416
     ],
     "group": "street",
     "web": {
@@ -48241,10 +47714,10 @@
     }
    },
    {
-    "index": 198,
+    "index": 199,
     "name": "traffic_cone",
     "colliders": [
-     416
+     417
     ],
     "group": "street",
     "web": {
@@ -48265,10 +47738,10 @@
     }
    },
    {
-    "index": 199,
+    "index": 200,
     "name": "traffic_cone",
     "colliders": [
-     417
+     418
     ],
     "group": "street",
     "web": {
@@ -48289,10 +47762,10 @@
     }
    },
    {
-    "index": 200,
+    "index": 201,
     "name": "dig_fence",
     "colliders": [
-     418
+     419
     ],
     "group": "edges",
     "what": "the dig's plywood fence",
@@ -48314,10 +47787,10 @@
     }
    },
    {
-    "index": 201,
+    "index": 202,
     "name": "traffic_drum",
     "colliders": [
-     419
+     420
     ],
     "group": "edges",
     "what": "an orange traffic drum",
@@ -48339,10 +47812,10 @@
     }
    },
    {
-    "index": 202,
+    "index": 203,
     "name": "traffic_drum",
     "colliders": [
-     420
+     421
     ],
     "group": "edges",
     "what": "an orange traffic drum",
@@ -48364,10 +47837,10 @@
     }
    },
    {
-    "index": 203,
+    "index": 204,
     "name": "road_plates",
     "colliders": [
-     421
+     422
     ],
     "group": "edges",
     "what": "steel road plates stacked on edge against the corner",
@@ -48389,10 +47862,10 @@
     }
    },
    {
-    "index": 204,
+    "index": 205,
     "name": "traffic_cone",
     "colliders": [
-     422
+     423
     ],
     "group": "edges",
     "web": {
@@ -48413,10 +47886,10 @@
     }
    },
    {
-    "index": 205,
+    "index": 206,
     "name": "traffic_cone",
     "colliders": [
-     423
+     424
     ],
     "group": "edges",
     "web": {
@@ -48437,10 +47910,10 @@
     }
    },
    {
-    "index": 206,
+    "index": 207,
     "name": "crate_stack",
     "colliders": [
-     424
+     425
     ],
     "group": "street",
     "what": "the bakery's flour sacks",
@@ -48462,10 +47935,10 @@
     }
    },
    {
-    "index": 207,
+    "index": 208,
     "name": "fruit_crates",
     "colliders": [
-     425
+     426
     ],
     "group": "street",
     "what": "GOOD WISHES GROCERY: more fruit boxes",
@@ -48487,10 +47960,10 @@
     }
    },
    {
-    "index": 208,
+    "index": 209,
     "name": "muni_meter",
     "colliders": [
-     426
+     427
     ],
     "group": "street",
     "web": {
@@ -48511,10 +47984,10 @@
     }
    },
    {
-    "index": 209,
+    "index": 210,
     "name": "muni_meter",
     "colliders": [
-     427
+     428
     ],
     "group": "street",
     "web": {
@@ -48535,10 +48008,10 @@
     }
    },
    {
-    "index": 210,
+    "index": 211,
     "name": "mailbox",
     "colliders": [
-     428
+     429
     ],
     "group": "street",
     "web": {
@@ -48559,10 +48032,10 @@
     }
    },
    {
-    "index": 211,
+    "index": 212,
     "name": "bike_rack",
     "colliders": [
-     429
+     430
     ],
     "group": "street",
     "web": {
@@ -48583,10 +48056,10 @@
     }
    },
    {
-    "index": 212,
+    "index": 213,
     "name": "sandwich_board",
     "colliders": [
-     430
+     431
     ],
     "group": "street",
     "what": "LITTLE KITE CAFE: a milk-tea board (pictures)",
@@ -48608,10 +48081,10 @@
     }
    },
    {
-    "index": 213,
+    "index": 214,
     "name": "crate_stack",
     "colliders": [
-     431
+     432
     ],
     "group": "street",
     "what": "milk crates",
@@ -48633,10 +48106,10 @@
     }
    },
    {
-    "index": 214,
+    "index": 215,
     "name": "crate_stack",
     "colliders": [
-     432
+     433
     ],
     "group": "street",
     "what": "the cafe's delivery",
@@ -48658,10 +48131,10 @@
     }
    },
    {
-    "index": 215,
+    "index": 216,
     "name": "crate_stack",
     "colliders": [
-     433
+     434
     ],
     "group": "street",
     "what": "the dub room's blank disc cartons",
@@ -48683,10 +48156,10 @@
     }
    },
    {
-    "index": 216,
+    "index": 217,
     "name": "muni_meter",
     "colliders": [
-     434
+     435
     ],
     "group": "street",
     "web": {
@@ -48707,10 +48180,10 @@
     }
    },
    {
-    "index": 217,
+    "index": 218,
     "name": "muni_meter",
     "colliders": [
-     435
+     436
     ],
     "group": "street",
     "web": {
@@ -48731,10 +48204,10 @@
     }
    },
    {
-    "index": 218,
+    "index": 219,
     "name": "muni_meter",
     "colliders": [
-     436
+     437
     ],
     "group": "street",
     "web": {
@@ -48755,10 +48228,10 @@
     }
    },
    {
-    "index": 219,
+    "index": 220,
     "name": "newspaper_box",
     "colliders": [
-     437
+     438
     ],
     "group": "street",
     "web": {
@@ -48779,10 +48252,10 @@
     }
    },
    {
-    "index": 220,
+    "index": 221,
     "name": "trash_can",
     "colliders": [
-     438
+     439
     ],
     "group": "street",
     "web": {
@@ -48803,10 +48276,10 @@
     }
    },
    {
-    "index": 221,
+    "index": 222,
     "name": "cardboard_bale",
     "colliders": [
-     439
+     440
     ],
     "group": "alley",
     "what": "a bale of flattened cartons",
@@ -48828,10 +48301,10 @@
     }
    },
    {
-    "index": 222,
+    "index": 223,
     "name": "fish_boxes",
     "colliders": [
-     440
+     441
     ],
     "group": "alley",
     "what": "styrofoam fish boxes, stacked",
@@ -48853,10 +48326,10 @@
     }
    },
    {
-    "index": 223,
+    "index": 224,
     "name": "grease_bin",
     "colliders": [
-     441
+     442
     ],
     "group": "alley",
     "what": "a restaurant's grease bin",
@@ -48878,10 +48351,10 @@
     }
    },
    {
-    "index": 224,
+    "index": 225,
     "name": "ac_unit",
     "colliders": [
-     442
+     443
     ],
     "group": "alley",
     "what": "an air conditioner on the ground, dripping",
@@ -48903,10 +48376,10 @@
     }
    },
    {
-    "index": 225,
+    "index": 226,
     "name": "trash_bags",
     "colliders": [
-     443
+     444
     ],
     "group": "alley",
     "what": "kitchen bags",
@@ -48928,10 +48401,10 @@
     }
    },
    {
-    "index": 226,
+    "index": 227,
     "name": "fish_boxes",
     "colliders": [
-     444
+     445
     ],
     "group": "alley",
     "what": "the market's empty fish boxes",
@@ -48953,10 +48426,10 @@
     }
    },
    {
-    "index": 227,
+    "index": 228,
     "name": "cardboard_bale",
     "colliders": [
-     445
+     446
     ],
     "group": "alley",
     "what": "a bale of flattened produce boxes",
@@ -48978,10 +48451,10 @@
     }
    },
    {
-    "index": 228,
+    "index": 229,
     "name": "trash_bags",
     "colliders": [
-     446
+     447
     ],
     "group": "alley",
     "what": "the market's bags",
@@ -49003,10 +48476,10 @@
     }
    },
    {
-    "index": 229,
+    "index": 230,
     "name": "grease_bin",
     "colliders": [
-     447
+     448
     ],
     "group": "alley",
     "what": "B0's grease bin",
@@ -49028,10 +48501,10 @@
     }
    },
    {
-    "index": 230,
+    "index": 231,
     "name": "exhaust_fan",
     "colliders": [
-     448
+     449
     ],
     "group": "alley",
     "what": "a kitchen exhaust fan box on the wall",
@@ -49053,10 +48526,10 @@
     }
    },
    {
-    "index": 231,
+    "index": 232,
     "name": "exhaust_fan",
     "colliders": [
-     449
+     450
     ],
     "group": "alley",
     "what": "a kitchen exhaust fan box on the wall",
@@ -49078,10 +48551,10 @@
     }
    },
    {
-    "index": 232,
+    "index": 233,
     "name": "exhaust_fan",
     "colliders": [
-     450
+     451
     ],
     "group": "alley",
     "what": "a kitchen exhaust fan box on the wall",
@@ -49103,10 +48576,10 @@
     }
    },
    {
-    "index": 233,
+    "index": 234,
     "name": "fish_boxes",
     "colliders": [
-     451
+     452
     ],
     "group": "alley",
     "web": {
@@ -49127,10 +48600,10 @@
     }
    },
    {
-    "index": 234,
+    "index": 235,
     "name": "cardboard_bale",
     "colliders": [
-     452
+     453
     ],
     "group": "alley",
     "web": {
@@ -49151,10 +48624,10 @@
     }
    },
    {
-    "index": 235,
+    "index": 236,
     "name": "grease_bin",
     "colliders": [
-     453
+     454
     ],
     "group": "alley",
     "web": {
@@ -49175,10 +48648,10 @@
     }
    },
    {
-    "index": 236,
+    "index": 237,
     "name": "ac_unit",
     "colliders": [
-     454
+     455
     ],
     "group": "alley",
     "web": {
@@ -49199,10 +48672,10 @@
     }
    },
    {
-    "index": 237,
+    "index": 238,
     "name": "trash_bags",
     "colliders": [
-     455
+     456
     ],
     "group": "alley",
     "web": {
@@ -49223,10 +48696,10 @@
     }
    },
    {
-    "index": 238,
+    "index": 239,
     "name": "fish_boxes",
     "colliders": [
-     456
+     457
     ],
     "group": "alley",
     "web": {
@@ -49247,10 +48720,10 @@
     }
    },
    {
-    "index": 239,
+    "index": 240,
     "name": "cardboard_bale",
     "colliders": [
-     457
+     458
     ],
     "group": "alley",
     "web": {
@@ -49271,10 +48744,10 @@
     }
    },
    {
-    "index": 240,
+    "index": 241,
     "name": "exhaust_fan",
     "colliders": [
-     458
+     459
     ],
     "group": "alley",
     "what": "a kitchen exhaust fan box on the wall",
@@ -49296,10 +48769,10 @@
     }
    },
    {
-    "index": 241,
+    "index": 242,
     "name": "exhaust_fan",
     "colliders": [
-     459
+     460
     ],
     "group": "alley",
     "what": "a kitchen exhaust fan box on the wall",
@@ -49321,10 +48794,10 @@
     }
    },
    {
-    "index": 242,
+    "index": 243,
     "name": "exhaust_fan",
     "colliders": [
-     460
+     461
     ],
     "group": "alley",
     "what": "a kitchen exhaust fan box on the wall",
@@ -49346,10 +48819,10 @@
     }
    },
    {
-    "index": 243,
+    "index": 244,
     "name": "gas_cage_frame",
     "colliders": [
-     461
+     462
     ],
     "group": "alley",
     "what": "the empty half of the yard's gas cage",
@@ -49371,10 +48844,10 @@
     }
    },
    {
-    "index": 244,
+    "index": 245,
     "name": "fish_boxes",
     "colliders": [
-     462
+     463
     ],
     "group": "alley",
     "web": {
@@ -49395,10 +48868,10 @@
     }
    },
    {
-    "index": 245,
+    "index": 246,
     "name": "cardboard_bale",
     "colliders": [
-     463
+     464
     ],
     "group": "alley",
     "web": {
@@ -49419,10 +48892,10 @@
     }
    },
    {
-    "index": 246,
+    "index": 247,
     "name": "trash_bags",
     "colliders": [
-     464
+     465
     ],
     "group": "alley",
     "web": {
@@ -49443,10 +48916,10 @@
     }
    },
    {
-    "index": 247,
+    "index": 248,
     "name": "fish_boxes",
     "colliders": [
-     465
+     466
     ],
     "group": "spare",
     "what": "styrofoam boxes at the end of stall row R1",
@@ -49468,10 +48941,10 @@
     }
    },
    {
-    "index": 248,
+    "index": 249,
     "name": "fish_boxes",
     "colliders": [
-     466
+     467
     ],
     "group": "spare",
     "what": "styrofoam boxes at the end of stall row R2",
@@ -49493,10 +48966,10 @@
     }
    },
    {
-    "index": 249,
+    "index": 250,
     "name": "produce_crates",
     "colliders": [
-     467
+     468
     ],
     "group": "spare",
     "what": "crates at the back of stall row R2",
@@ -49518,10 +48991,10 @@
     }
    },
    {
-    "index": 250,
+    "index": 251,
     "name": "fish_boxes",
     "colliders": [
-     468
+     469
     ],
     "group": "spare",
     "what": "styrofoam boxes at the end of stall row R3",
@@ -49543,10 +49016,10 @@
     }
    },
    {
-    "index": 251,
+    "index": 252,
     "name": "produce_crates",
     "colliders": [
-     469
+     470
     ],
     "group": "spare",
     "what": "crates at the back of stall row R3",
@@ -49568,10 +49041,10 @@
     }
    },
    {
-    "index": 252,
+    "index": 253,
     "name": "fish_boxes",
     "colliders": [
-     470
+     471
     ],
     "group": "spare",
     "what": "styrofoam boxes at the end of stall row R4",
@@ -49593,10 +49066,10 @@
     }
    },
    {
-    "index": 253,
+    "index": 254,
     "name": "produce_crates",
     "colliders": [
-     471
+     472
     ],
     "group": "spare",
     "what": "crates at the back of stall row R4",
@@ -49618,10 +49091,10 @@
     }
    },
    {
-    "index": 254,
+    "index": 255,
     "name": "hand_truck",
     "colliders": [
-     472
+     473
     ],
     "group": "spare",
     "what": "a hand truck of cartons in the west aisle",
@@ -49643,10 +49116,10 @@
     }
    },
    {
-    "index": 255,
+    "index": 256,
     "name": "scale_stand",
     "colliders": [
-     473
+     474
     ],
     "group": "spare",
     "what": "a hanging-scale stand",
@@ -49668,10 +49141,10 @@
     }
    },
    {
-    "index": 256,
+    "index": 257,
     "name": "roof_vent",
     "colliders": [
-     474
+     475
     ],
     "group": "roof",
     "web": {
@@ -49692,10 +49165,10 @@
     }
    },
    {
-    "index": 257,
+    "index": 258,
     "name": "roof_vent",
     "colliders": [
-     475
+     476
     ],
     "group": "roof",
     "web": {
@@ -49716,10 +49189,10 @@
     }
    },
    {
-    "index": 258,
+    "index": 259,
     "name": "roof_vent",
     "colliders": [
-     476
+     477
     ],
     "group": "roof",
     "web": {
@@ -49740,10 +49213,10 @@
     }
    },
    {
-    "index": 259,
+    "index": 260,
     "name": "roof_vent",
     "colliders": [
-     477
+     478
     ],
     "group": "roof",
     "web": {
@@ -49764,10 +49237,10 @@
     }
    },
    {
-    "index": 260,
+    "index": 261,
     "name": "roof_ac",
     "colliders": [
-     478
+     479
     ],
     "group": "roof",
     "web": {
@@ -49788,10 +49261,10 @@
     }
    },
    {
-    "index": 261,
+    "index": 262,
     "name": "roof_ac",
     "colliders": [
-     479
+     480
     ],
     "group": "roof",
     "web": {
@@ -49812,10 +49285,10 @@
     }
    },
    {
-    "index": 262,
+    "index": 263,
     "name": "antenna_mast",
     "colliders": [
-     480
+     481
     ],
     "group": "roof",
     "web": {
@@ -49836,10 +49309,10 @@
     }
    },
    {
-    "index": 263,
+    "index": 264,
     "name": "roof_vent",
     "colliders": [
-     481
+     482
     ],
     "group": "roof",
     "web": {
@@ -49860,10 +49333,10 @@
     }
    },
    {
-    "index": 264,
+    "index": 265,
     "name": "roof_vent",
     "colliders": [
-     482
+     483
     ],
     "group": "roof",
     "web": {
@@ -49884,10 +49357,10 @@
     }
    },
    {
-    "index": 265,
+    "index": 266,
     "name": "roof_ac",
     "colliders": [
-     483
+     484
     ],
     "group": "roof",
     "web": {
@@ -49908,10 +49381,10 @@
     }
    },
    {
-    "index": 266,
+    "index": 267,
     "name": "exhaust_stack",
     "colliders": [
-     484
+     485
     ],
     "group": "roof",
     "web": {
@@ -49932,10 +49405,10 @@
     }
    },
    {
-    "index": 267,
+    "index": 268,
     "name": "roof_ac",
     "colliders": [
-     485
+     486
     ],
     "group": "roof",
     "web": {
@@ -49956,10 +49429,10 @@
     }
    },
    {
-    "index": 268,
+    "index": 269,
     "name": "trash_can",
     "colliders": [
-     486
+     487
     ],
     "group": "square",
     "web": {
@@ -49980,10 +49453,10 @@
     }
    },
    {
-    "index": 269,
+    "index": 270,
     "name": "trash_can",
     "colliders": [
-     487
+     488
     ],
     "group": "square",
     "web": {
@@ -50004,10 +49477,10 @@
     }
    },
    {
-    "index": 270,
+    "index": 271,
     "name": "bike_rack",
     "colliders": [
-     488
+     489
     ],
     "group": "square",
     "web": {
@@ -50028,10 +49501,10 @@
     }
    },
    {
-    "index": 271,
+    "index": 272,
     "name": "chess_table",
     "colliders": [
-     489
+     490
     ],
     "group": "square",
     "what": "a concrete chess table",
@@ -50053,10 +49526,10 @@
     }
    },
    {
-    "index": 272,
+    "index": 273,
     "name": "chess_table",
     "colliders": [
-     490
+     491
     ],
     "group": "square",
     "what": "a concrete chess table",
@@ -50078,10 +49551,10 @@
     }
    },
    {
-    "index": 273,
+    "index": 274,
     "name": "planter",
     "colliders": [
-     491
+     492
     ],
     "group": "square",
     "web": {
@@ -50102,10 +49575,10 @@
     }
    },
    {
-    "index": 274,
+    "index": 275,
     "name": "chair_stack",
     "colliders": [
-     492
+     493
     ],
     "group": "spare",
     "what": "banquet chairs, stacked",
@@ -50127,10 +49600,10 @@
     }
    },
    {
-    "index": 275,
+    "index": 276,
     "name": "chair_stack",
     "colliders": [
-     493
+     494
     ],
     "group": "spare",
     "what": "banquet chairs, stacked",
@@ -50152,10 +49625,10 @@
     }
    },
    {
-    "index": 276,
+    "index": 277,
     "name": "chair_stack",
     "colliders": [
-     494
+     495
     ],
     "group": "spare",
     "what": "banquet chairs, stacked",
@@ -50177,10 +49650,10 @@
     }
    },
    {
-    "index": 277,
+    "index": 278,
     "name": "chair_stack",
     "colliders": [
-     495
+     496
     ],
     "group": "spare",
     "what": "banquet chairs, stacked",
@@ -50202,10 +49675,10 @@
     }
    },
    {
-    "index": 278,
+    "index": 279,
     "name": "tape_shelf",
     "colliders": [
-     496
+     497
     ],
     "group": "spare",
     "what": "the dub room's shelf of tapes",
@@ -50227,10 +49700,10 @@
     }
    },
    {
-    "index": 279,
+    "index": 280,
     "name": "sign_pole",
     "colliders": [
-     497
+     498
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50252,10 +49725,10 @@
     }
    },
    {
-    "index": 280,
+    "index": 281,
     "name": "sign_pole",
     "colliders": [
-     498
+     499
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50277,10 +49750,10 @@
     }
    },
    {
-    "index": 281,
+    "index": 282,
     "name": "sign_pole",
     "colliders": [
-     499
+     500
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50302,10 +49775,10 @@
     }
    },
    {
-    "index": 282,
+    "index": 283,
     "name": "sign_pole",
     "colliders": [
-     500
+     501
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50327,10 +49800,10 @@
     }
    },
    {
-    "index": 283,
+    "index": 284,
     "name": "sign_pole",
     "colliders": [
-     501
+     502
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50352,10 +49825,10 @@
     }
    },
    {
-    "index": 284,
+    "index": 285,
     "name": "sign_pole",
     "colliders": [
-     502
+     503
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50377,10 +49850,10 @@
     }
    },
    {
-    "index": 285,
+    "index": 286,
     "name": "sign_pole",
     "colliders": [
-     503
+     504
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50402,10 +49875,10 @@
     }
    },
    {
-    "index": 286,
+    "index": 287,
     "name": "sign_pole",
     "colliders": [
-     504
+     505
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50427,10 +49900,10 @@
     }
    },
    {
-    "index": 287,
+    "index": 288,
     "name": "sign_pole",
     "colliders": [
-     505
+     506
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50452,10 +49925,10 @@
     }
    },
    {
-    "index": 288,
+    "index": 289,
     "name": "sign_pole",
     "colliders": [
-     506
+     507
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50477,10 +49950,10 @@
     }
    },
    {
-    "index": 289,
+    "index": 290,
     "name": "sign_pole",
     "colliders": [
-     507
+     508
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50502,10 +49975,10 @@
     }
    },
    {
-    "index": 290,
+    "index": 291,
     "name": "sign_pole",
     "colliders": [
-     508
+     509
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50527,10 +50000,10 @@
     }
    },
    {
-    "index": 291,
+    "index": 292,
     "name": "sign_pole",
     "colliders": [
-     509
+     510
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50552,10 +50025,10 @@
     }
    },
    {
-    "index": 292,
+    "index": 293,
     "name": "sign_pole",
     "colliders": [
-     510
+     511
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50577,10 +50050,10 @@
     }
    },
    {
-    "index": 293,
+    "index": 294,
     "name": "sign_pole",
     "colliders": [
-     511
+     512
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50602,10 +50075,10 @@
     }
    },
    {
-    "index": 294,
+    "index": 295,
     "name": "sign_pole",
     "colliders": [
-     512
+     513
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50627,10 +50100,10 @@
     }
    },
    {
-    "index": 295,
+    "index": 296,
     "name": "sign_pole",
     "colliders": [
-     513
+     514
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50652,10 +50125,10 @@
     }
    },
    {
-    "index": 296,
+    "index": 297,
     "name": "sign_pole",
     "colliders": [
-     514
+     515
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50677,10 +50150,10 @@
     }
    },
    {
-    "index": 297,
+    "index": 298,
     "name": "sign_pole",
     "colliders": [
-     515
+     516
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50702,10 +50175,10 @@
     }
    },
    {
-    "index": 298,
+    "index": 299,
     "name": "sign_pole",
     "colliders": [
-     516
+     517
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50727,10 +50200,10 @@
     }
    },
    {
-    "index": 299,
+    "index": 300,
     "name": "sign_pole",
     "colliders": [
-     517
+     518
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50752,10 +50225,10 @@
     }
    },
    {
-    "index": 300,
+    "index": 301,
     "name": "sign_pole",
     "colliders": [
-     518
+     519
     ],
     "group": "street",
     "what": "a street-sign pole (parking rules, no words that matter)",
@@ -50777,10 +50250,10 @@
     }
    },
    {
-    "index": 301,
+    "index": 302,
     "name": "sign_pole",
     "colliders": [
-     519
+     520
     ],
     "group": "street",
     "web": {
@@ -50801,10 +50274,10 @@
     }
    },
    {
-    "index": 302,
+    "index": 303,
     "name": "sign_pole",
     "colliders": [
-     520
+     521
     ],
     "group": "street",
     "web": {
@@ -50825,10 +50298,10 @@
     }
    },
    {
-    "index": 303,
+    "index": 304,
     "name": "sign_pole",
     "colliders": [
-     521
+     522
     ],
     "group": "street",
     "web": {
@@ -50849,10 +50322,10 @@
     }
    },
    {
-    "index": 304,
+    "index": 305,
     "name": "sign_pole",
     "colliders": [
-     522
+     523
     ],
     "group": "street",
     "web": {
@@ -50873,10 +50346,10 @@
     }
    },
    {
-    "index": 305,
+    "index": 306,
     "name": "sign_pole",
     "colliders": [
-     523
+     524
     ],
     "group": "street",
     "web": {
@@ -50897,10 +50370,10 @@
     }
    },
    {
-    "index": 306,
+    "index": 307,
     "name": "sign_pole",
     "colliders": [
-     524
+     525
     ],
     "group": "street",
     "web": {
@@ -50921,10 +50394,10 @@
     }
    },
    {
-    "index": 307,
+    "index": 308,
     "name": "sign_pole",
     "colliders": [
-     525
+     526
     ],
     "group": "street",
     "web": {
@@ -50945,10 +50418,10 @@
     }
    },
    {
-    "index": 308,
+    "index": 309,
     "name": "sign_pole",
     "colliders": [
-     526
+     527
     ],
     "group": "street",
     "web": {
@@ -50969,10 +50442,10 @@
     }
    },
    {
-    "index": 309,
+    "index": 310,
     "name": "sign_pole",
     "colliders": [
-     527
+     528
     ],
     "group": "street",
     "web": {
@@ -50993,10 +50466,10 @@
     }
    },
    {
-    "index": 310,
+    "index": 311,
     "name": "sign_pole",
     "colliders": [
-     528
+     529
     ],
     "group": "street",
     "web": {
@@ -51017,10 +50490,10 @@
     }
    },
    {
-    "index": 311,
+    "index": 312,
     "name": "sign_pole",
     "colliders": [
-     529
+     530
     ],
     "group": "street",
     "web": {
@@ -51041,10 +50514,10 @@
     }
    },
    {
-    "index": 312,
+    "index": 313,
     "name": "sign_pole",
     "colliders": [
-     530
+     531
     ],
     "group": "street",
     "web": {
@@ -51065,10 +50538,34 @@
     }
    },
    {
-    "index": 313,
+    "index": 314,
     "name": "sign_pole",
     "colliders": [
-     531
+     532
+    ],
+    "group": "street",
+    "web": {
+     "pos": {
+      "x": 16.102,
+      "y": 0.15,
+      "z": 26.0
+     },
+     "rotationY": 0.0
+    },
+    "ue": {
+     "pos": {
+      "X": 1610.2,
+      "Y": 2600.0,
+      "Z": 15.0
+     },
+     "yaw": -0.0
+    }
+   },
+   {
+    "index": 315,
+    "name": "sign_pole",
+    "colliders": [
+     533
     ],
     "group": "street",
     "web": {
@@ -51089,10 +50586,10 @@
     }
    },
    {
-    "index": 314,
+    "index": 316,
     "name": "shed_post",
     "colliders": [
-     532
+     534
     ],
     "group": "street",
     "what": "the Canal sidewalk shed's facade-side post",
@@ -51114,10 +50611,10 @@
     }
    },
    {
-    "index": 315,
+    "index": 317,
     "name": "shed_post",
     "colliders": [
-     533
+     535
     ],
     "group": "street",
     "what": "the Canal sidewalk shed's facade-side post",
@@ -51139,10 +50636,10 @@
     }
    },
    {
-    "index": 316,
+    "index": 318,
     "name": "shed_post",
     "colliders": [
-     534
+     536
     ],
     "group": "street",
     "what": "the Canal sidewalk shed's facade-side post",
@@ -51164,10 +50661,10 @@
     }
    },
    {
-    "index": 317,
+    "index": 319,
     "name": "shed_post",
     "colliders": [
-     535
+     537
     ],
     "group": "street",
     "what": "the Canal sidewalk shed's facade-side post",
@@ -51189,10 +50686,10 @@
     }
    },
    {
-    "index": 318,
+    "index": 320,
     "name": "shed_post",
     "colliders": [
-     536
+     538
     ],
     "group": "street",
     "what": "the Canal sidewalk shed's facade-side post",
@@ -51214,10 +50711,10 @@
     }
    },
    {
-    "index": 319,
+    "index": 321,
     "name": "newspaper_box",
     "colliders": [
-     537
+     539
     ],
     "group": "street",
     "web": {
@@ -51238,10 +50735,10 @@
     }
    },
    {
-    "index": 320,
+    "index": 322,
     "name": "newspaper_box",
     "colliders": [
-     538
+     540
     ],
     "group": "street",
     "web": {
@@ -51262,10 +50759,10 @@
     }
    },
    {
-    "index": 321,
+    "index": 323,
     "name": "fire_hydrant",
     "colliders": [
-     539
+     541
     ],
     "group": "street",
     "web": {
@@ -51286,10 +50783,10 @@
     }
    },
    {
-    "index": 322,
+    "index": 324,
     "name": "newspaper_box",
     "colliders": [
-     540
+     542
     ],
     "group": "street",
     "web": {
@@ -51310,10 +50807,10 @@
     }
    },
    {
-    "index": 323,
+    "index": 325,
     "name": "newspaper_box",
     "colliders": [
-     541
+     543
     ],
     "group": "street",
     "web": {
@@ -51334,10 +50831,10 @@
     }
    },
    {
-    "index": 324,
+    "index": 326,
     "name": "newspaper_box",
     "colliders": [
-     542
+     544
     ],
     "group": "street",
     "web": {
@@ -51358,10 +50855,10 @@
     }
    },
    {
-    "index": 325,
+    "index": 327,
     "name": "planter",
     "colliders": [
-     543
+     545
     ],
     "group": "street",
     "what": "a shop's planter box",
@@ -51383,10 +50880,10 @@
     }
    },
    {
-    "index": 326,
+    "index": 328,
     "name": "crate_stack",
     "colliders": [
-     544
+     546
     ],
     "group": "street",
     "what": "crates along the Mott facade",
@@ -51408,10 +50905,10 @@
     }
    },
    {
-    "index": 327,
+    "index": 329,
     "name": "crate_stack",
     "colliders": [
-     545
+     547
     ],
     "group": "street",
     "what": "crates along the Mott facade",
@@ -51433,10 +50930,10 @@
     }
    },
    {
-    "index": 328,
+    "index": 330,
     "name": "crate_stack",
     "colliders": [
-     546
+     548
     ],
     "group": "street",
     "what": "crates along the Mott facade",
@@ -51458,10 +50955,10 @@
     }
    },
    {
-    "index": 329,
+    "index": 331,
     "name": "crate_stack",
     "colliders": [
-     547
+     549
     ],
     "group": "street",
     "what": "crates along the Mott facade",
@@ -51483,10 +50980,10 @@
     }
    },
    {
-    "index": 330,
+    "index": 332,
     "name": "milk_crates",
     "colliders": [
-     548
+     550
     ],
     "group": "alley",
     "what": "milk crates against W1",
@@ -51508,10 +51005,10 @@
     }
    },
    {
-    "index": 331,
+    "index": 333,
     "name": "milk_crates",
     "colliders": [
-     549
+     551
     ],
     "group": "alley",
     "what": "milk crates against W1",
@@ -51533,10 +51030,10 @@
     }
    },
    {
-    "index": 332,
+    "index": 334,
     "name": "milk_crates",
     "colliders": [
-     550
+     552
     ],
     "group": "alley",
     "what": "milk crates against W1",
@@ -51558,10 +51055,10 @@
     }
    },
    {
-    "index": 333,
+    "index": 335,
     "name": "milk_crates",
     "colliders": [
-     551
+     553
     ],
     "group": "alley",
     "what": "milk crates against W1",
@@ -51583,10 +51080,10 @@
     }
    },
    {
-    "index": 334,
+    "index": 336,
     "name": "milk_crates",
     "colliders": [
-     552
+     554
     ],
     "group": "alley",
     "what": "milk crates against W1",
@@ -51608,10 +51105,10 @@
     }
    },
    {
-    "index": 335,
+    "index": 337,
     "name": "styrofoam_stack",
     "colliders": [
-     553
+     555
     ],
     "group": "alley",
     "what": "styrofoam fish boxes",
@@ -51633,10 +51130,10 @@
     }
    },
    {
-    "index": 336,
+    "index": 338,
     "name": "styrofoam_stack",
     "colliders": [
-     554
+     556
     ],
     "group": "alley",
     "what": "styrofoam fish boxes",
@@ -51658,10 +51155,10 @@
     }
    },
    {
-    "index": 337,
+    "index": 339,
     "name": "styrofoam_stack",
     "colliders": [
-     555
+     557
     ],
     "group": "alley",
     "what": "styrofoam fish boxes",
@@ -51683,10 +51180,10 @@
     }
    },
    {
-    "index": 338,
+    "index": 340,
     "name": "bucket_stack",
     "colliders": [
-     556
+     558
     ],
     "group": "alley",
     "what": "buckets and a mop wringer",
@@ -51708,10 +51205,10 @@
     }
    },
    {
-    "index": 339,
+    "index": 341,
     "name": "bucket_stack",
     "colliders": [
-     557
+     559
     ],
     "group": "alley",
     "what": "buckets and a mop wringer",
@@ -51733,10 +51230,10 @@
     }
    },
    {
-    "index": 340,
+    "index": 342,
     "name": "bucket_stack",
     "colliders": [
-     558
+     560
     ],
     "group": "alley",
     "what": "buckets and a mop wringer",
@@ -51758,10 +51255,10 @@
     }
    },
    {
-    "index": 341,
+    "index": 343,
     "name": "bucket_stack",
     "colliders": [
-     559
+     561
     ],
     "group": "alley",
     "what": "buckets and a mop wringer",
@@ -51783,10 +51280,10 @@
     }
    },
    {
-    "index": 342,
+    "index": 344,
     "name": "bucket_stack",
     "colliders": [
-     560
+     562
     ],
     "group": "alley",
     "what": "buckets and a mop wringer",
@@ -51808,10 +51305,10 @@
     }
    },
    {
-    "index": 343,
+    "index": 345,
     "name": "cardboard_bale",
     "colliders": [
-     561
+     563
     ],
     "group": "alley",
     "web": {
@@ -51832,10 +51329,10 @@
     }
    },
    {
-    "index": 344,
+    "index": 346,
     "name": "cardboard_bale",
     "colliders": [
-     562
+     564
     ],
     "group": "alley",
     "web": {
@@ -51856,10 +51353,10 @@
     }
    },
    {
-    "index": 345,
+    "index": 347,
     "name": "cardboard_bale",
     "colliders": [
-     563
+     565
     ],
     "group": "alley",
     "web": {
@@ -51880,10 +51377,10 @@
     }
    },
    {
-    "index": 346,
+    "index": 348,
     "name": "cardboard_bale",
     "colliders": [
-     564
+     566
     ],
     "group": "alley",
     "web": {
@@ -51904,10 +51401,10 @@
     }
    },
    {
-    "index": 347,
+    "index": 349,
     "name": "pallet_single",
     "colliders": [
-     565
+     567
     ],
     "group": "alley",
     "what": "a pallet on the ground",
@@ -51929,10 +51426,10 @@
     }
    },
    {
-    "index": 348,
+    "index": 350,
     "name": "traffic_drum",
     "colliders": [
-     566
+     568
     ],
     "group": "edges",
     "web": {
@@ -51953,10 +51450,10 @@
     }
    },
    {
-    "index": 349,
+    "index": 351,
     "name": "traffic_drum",
     "colliders": [
-     567
+     569
     ],
     "group": "edges",
     "web": {
@@ -51977,10 +51474,10 @@
     }
    },
    {
-    "index": 350,
+    "index": 352,
     "name": "traffic_drum",
     "colliders": [
-     568
+     570
     ],
     "group": "edges",
     "web": {
@@ -52001,10 +51498,10 @@
     }
    },
    {
-    "index": 351,
+    "index": 353,
     "name": "traffic_drum",
     "colliders": [
-     569
+     571
     ],
     "group": "edges",
     "web": {
@@ -52025,10 +51522,10 @@
     }
    },
    {
-    "index": 352,
+    "index": 354,
     "name": "traffic_drum",
     "colliders": [
-     570
+     572
     ],
     "group": "edges",
     "web": {
@@ -52049,56 +51546,6 @@
     }
    },
    {
-    "index": 353,
-    "name": "traffic_cone",
-    "colliders": [
-     571
-    ],
-    "group": "edges",
-    "what": "hazard cones around the double-parked truck",
-    "web": {
-     "pos": {
-      "x": 21.0,
-      "y": 0.0,
-      "z": -27.9
-     },
-     "rotationY": 0.0
-    },
-    "ue": {
-     "pos": {
-      "X": 2100.0,
-      "Y": -2790.0,
-      "Z": 0.0
-     },
-     "yaw": -0.0
-    }
-   },
-   {
-    "index": 354,
-    "name": "traffic_cone",
-    "colliders": [
-     572
-    ],
-    "group": "edges",
-    "what": "hazard cones around the double-parked truck",
-    "web": {
-     "pos": {
-      "x": 21.0,
-      "y": 0.0,
-      "z": -24.7
-     },
-     "rotationY": 0.0
-    },
-    "ue": {
-     "pos": {
-      "X": 2100.0,
-      "Y": -2470.0,
-      "Z": 0.0
-     },
-     "yaw": -0.0
-    }
-   },
-   {
     "index": 355,
     "name": "traffic_cone",
     "colliders": [
@@ -52108,7 +51555,7 @@
     "what": "hazard cones around the double-parked truck",
     "web": {
      "pos": {
-      "x": 27.0,
+      "x": 21.0,
       "y": 0.0,
       "z": -27.9
      },
@@ -52116,7 +51563,7 @@
     },
     "ue": {
      "pos": {
-      "X": 2700.0,
+      "X": 2100.0,
       "Y": -2790.0,
       "Z": 0.0
      },
@@ -52133,6 +51580,56 @@
     "what": "hazard cones around the double-parked truck",
     "web": {
      "pos": {
+      "x": 21.0,
+      "y": 0.0,
+      "z": -24.7
+     },
+     "rotationY": 0.0
+    },
+    "ue": {
+     "pos": {
+      "X": 2100.0,
+      "Y": -2470.0,
+      "Z": 0.0
+     },
+     "yaw": -0.0
+    }
+   },
+   {
+    "index": 357,
+    "name": "traffic_cone",
+    "colliders": [
+     575
+    ],
+    "group": "edges",
+    "what": "hazard cones around the double-parked truck",
+    "web": {
+     "pos": {
+      "x": 27.0,
+      "y": 0.0,
+      "z": -27.9
+     },
+     "rotationY": 0.0
+    },
+    "ue": {
+     "pos": {
+      "X": 2700.0,
+      "Y": -2790.0,
+      "Z": 0.0
+     },
+     "yaw": -0.0
+    }
+   },
+   {
+    "index": 358,
+    "name": "traffic_cone",
+    "colliders": [
+     576
+    ],
+    "group": "edges",
+    "what": "hazard cones around the double-parked truck",
+    "web": {
+     "pos": {
       "x": 27.0,
       "y": 0.0,
       "z": -24.7
@@ -52149,10 +51646,10 @@
     }
    },
    {
-    "index": 357,
+    "index": 359,
     "name": "alarm_pedestal",
     "colliders": [
-     575
+     577
     ],
     "group": "street",
     "what": "a fire-alarm pedestal",
@@ -52174,10 +51671,10 @@
     }
    },
    {
-    "index": 358,
+    "index": 360,
     "name": "alarm_pedestal",
     "colliders": [
-     576
+     578
     ],
     "group": "street",
     "what": "a fire-alarm pedestal",
@@ -52199,10 +51696,10 @@
     }
    },
    {
-    "index": 359,
+    "index": 361,
     "name": "ebike",
     "colliders": [
-     577
+     579
     ],
     "group": "street",
     "what": "a delivery e-bike against the facade",
@@ -52224,10 +51721,10 @@
     }
    },
    {
-    "index": 360,
+    "index": 362,
     "name": "hand_truck",
     "colliders": [
-     578
+     580
     ],
     "group": "street",
     "what": "a hand truck of cartons",
@@ -52249,10 +51746,10 @@
     }
    },
    {
-    "index": 361,
+    "index": 363,
     "name": "hand_truck",
     "colliders": [
-     579
+     581
     ],
     "group": "street",
     "what": "a hand truck of cartons",
@@ -52274,10 +51771,10 @@
     }
    },
    {
-    "index": 362,
+    "index": 364,
     "name": "milk_crates",
     "colliders": [
-     580
+     582
     ],
     "group": "street",
     "what": "milk crates",
@@ -52299,10 +51796,10 @@
     }
    },
    {
-    "index": 363,
+    "index": 365,
     "name": "milk_crates",
     "colliders": [
-     581
+     583
     ],
     "group": "street",
     "what": "milk crates",
@@ -52324,10 +51821,10 @@
     }
    },
    {
-    "index": 364,
+    "index": 366,
     "name": "planter",
     "colliders": [
-     582
+     584
     ],
     "group": "street",
     "what": "the laundromat's planter",
@@ -52349,10 +51846,10 @@
     }
    },
    {
-    "index": 365,
+    "index": 367,
     "name": "sandwich_board",
     "colliders": [
-     583
+     585
     ],
     "group": "street",
     "what": "N3: a board with photographs of the roast meats",
@@ -52374,10 +51871,35 @@
     }
    },
    {
-    "index": 366,
+    "index": 368,
+    "name": "crate_stack",
+    "colliders": [
+     586
+    ],
+    "group": "street",
+    "what": "the arcade corner's stacked cartons",
+    "web": {
+     "pos": {
+      "x": 32.7,
+      "y": 0.15,
+      "z": -14.825
+     },
+     "rotationY": 0.0
+    },
+    "ue": {
+     "pos": {
+      "X": 3270.0,
+      "Y": -1482.5,
+      "Z": 15.0
+     },
+     "yaw": -0.0
+    }
+   },
+   {
+    "index": 369,
     "name": "milk_crates",
     "colliders": [
-     584
+     587
     ],
     "group": "street",
     "what": "milk crates",
@@ -52399,10 +51921,10 @@
     }
    },
    {
-    "index": 367,
+    "index": 370,
     "name": "phone_kiosk",
     "colliders": [
-     585
+     588
     ],
     "group": "street",
     "what": "a dark sidewalk phone kiosk, no brand",
@@ -52424,10 +51946,10 @@
     }
    },
    {
-    "index": 368,
+    "index": 371,
     "name": "newsstand_bundle",
     "colliders": [
-     586
+     589
     ],
     "group": "street",
     "what": "bundled papers waiting for the morning",
@@ -52449,10 +51971,10 @@
     }
    },
    {
-    "index": 369,
+    "index": 372,
     "name": "dig_fence",
     "colliders": [
-     587
+     590
     ],
     "group": "edges",
     "what": "the end of the street: plywood and sawhorses",
@@ -52474,10 +51996,10 @@
     }
    },
    {
-    "index": 370,
+    "index": 373,
     "name": "barricade",
     "colliders": [
-     588
+     591
     ],
     "group": "edges",
     "what": "the end of the street: plywood and sawhorses",
@@ -52499,10 +52021,10 @@
     }
    },
    {
-    "index": 371,
+    "index": 374,
     "name": "dig_fence",
     "colliders": [
-     589
+     592
     ],
     "group": "edges",
     "what": "the end of the street: plywood and sawhorses",
@@ -52524,10 +52046,10 @@
     }
    },
    {
-    "index": 372,
+    "index": 375,
     "name": "dig_fence",
     "colliders": [
-     590
+     593
     ],
     "group": "edges",
     "what": "the end of the street: plywood and sawhorses",
@@ -52549,10 +52071,10 @@
     }
    },
    {
-    "index": 373,
+    "index": 376,
     "name": "box_pile",
     "colliders": [
-     591
+     594
     ],
     "group": "spare",
     "web": {
@@ -52573,10 +52095,10 @@
     }
    },
    {
-    "index": 374,
+    "index": 377,
     "name": "chair_stack",
     "colliders": [
-     592
+     595
     ],
     "group": "spare",
     "web": {
@@ -52597,10 +52119,10 @@
     }
    },
    {
-    "index": 375,
+    "index": 378,
     "name": "chair_stack",
     "colliders": [
-     593
+     596
     ],
     "group": "spare",
     "web": {
@@ -52621,10 +52143,10 @@
     }
    },
    {
-    "index": 376,
+    "index": 379,
     "name": "chair_stack",
     "colliders": [
-     594
+     597
     ],
     "group": "spare",
     "web": {
@@ -52645,10 +52167,10 @@
     }
    },
    {
-    "index": 377,
+    "index": 380,
     "name": "kitchen_rack",
     "colliders": [
-     595
+     598
     ],
     "group": "spare",
     "web": {
@@ -52669,10 +52191,10 @@
     }
    },
    {
-    "index": 378,
+    "index": 381,
     "name": "kitchen_rack",
     "colliders": [
-     596
+     599
     ],
     "group": "spare",
     "web": {
@@ -52693,10 +52215,10 @@
     }
    },
    {
-    "index": 379,
+    "index": 382,
     "name": "flour_sacks",
     "colliders": [
-     597
+     600
     ],
     "group": "spare",
     "web": {
@@ -52717,10 +52239,10 @@
     }
    },
    {
-    "index": 380,
+    "index": 383,
     "name": "flour_sacks",
     "colliders": [
-     598
+     601
     ],
     "group": "spare",
     "web": {
@@ -55536,9 +55058,9 @@
   },
   "clutterPlaced": {
    "alley": 53,
-   "street": 174,
+   "street": 176,
    "square": 18,
-   "vendor": 35,
+   "vendor": 36,
    "edges": 23,
    "spare": 22,
    "roof": 12
@@ -55686,17 +55208,6 @@
      -14.299999999999999
     ],
     "why": "overlaps shop_display"
-   },
-   {
-    "group": "vendor",
-    "name": "vendor_stool",
-    "rect": [
-     -6.8,
-     -6.3999999999999995,
-     -17.5,
-     -17.1
-    ],
-    "why": "doorway market gate"
    },
    {
     "group": "edges",
@@ -55953,17 +55464,6 @@
    },
    {
     "group": "street",
-    "name": "sign_pole",
-    "rect": [
-     16.064,
-     16.14,
-     25.962,
-     26.038
-    ],
-    "why": "doorway dub room roll-up"
-   },
-   {
-    "group": "street",
     "name": "planter",
     "rect": [
      -42.0,
@@ -56181,17 +55681,6 @@
      -32.4
     ],
     "why": "overlaps newspaper_box"
-   },
-   {
-    "group": "street",
-    "name": "crate_stack",
-    "rect": [
-     32.4,
-     33.0,
-     -15.6,
-     -14.05
-    ],
-    "why": "doorway arcade north"
    },
    {
     "group": "street",
