@@ -548,3 +548,46 @@ Block did not have, in one art-in folder (`MI_ART_MT`, default `/project/ue/art-
   Goon is alive at every sample after 15 s, and replacements stand on the roof. Before the change the same run showed 3
   street Goons recycled again and again and no shot at all in 90 s. The first fight comes after about 10 s: the stranded
   window of the street Goons.
+
+## Fast build 2026-11-28 (integration, v7 package)
+
+One tree (engine, nav, Canal and Midtown map lanes, the Canal roof change, the Loadout changes pushed meanwhile) built
+on the GPU box, the suite run, packaged once as v7, then played through the stream tools (`tools/box/cloud/lag-test.sh`,
+the Development game of the package, `-sm5`, 1920 x 1080, the Python viewer that saves frames; frames read by eye).
+
+- **What the integration found (all in commits).**
+  - The package cooked only `L_Block`. `package-cloud.sh` now cooks `L_Chinatown` and `L_Midtown` too (`MapsToCook` and
+    `-map=`).
+  - Both art maps booted as a grey-box map. The game finds an art map, and switches the art's own collision off, by the
+    actor tag `presentation.json block.artTag` (`MIBlock`). The Canal builder tagged its actors `MICanal` and the Midtown
+    builder `MIMidtown`: Canal drew the grey boxes over the art (`booted (grey-box map ...)`), and Midtown kept 1,145
+    art actors with full collision. Both builders now tag `MIBlock` and both saved maps were re-tagged in the editor
+    (an actor's tags change does not mark the map dirty: call `actor.modify()` before saving, or the save writes
+    nothing). After the fix the log reads `art map: 223 art collision primitives switched off` on Canal and `1114` on
+    Midtown, and both boot as `art map`.
+  - Canal and Midtown are reached only by the campaign or a typed code in the front end; a game launched on the map
+    URL (`-- "/Game/Maps/L_Midtown?level=midtown?block=1?travelled"`) boots the level directly, which is what the demo
+    director needs (its script ends with a hard travel, because the director is a world subsystem).
+- **Package.** `tools/box/cloud/package-cloud.sh all` with `MI_CLOUD=/project/ue/maps/pkg`, its own release copy
+  (`MI_REL`) and content clone (`MI_GP`), `MI_COMMIT` the pushed head, `MI_TAG=v7`. Zip 2.44 GB in 11 parts (v6: 2.42
+  GB: the art of both maps was already under `DirectoriesToAlwaysCook`, so the two maps add about 14 MB).
+- **Suite.** `tools/box/test.sh MurderInc`: 245 passed, 0 failed, 0 skipped on the packaged head. The Block's
+  `level.json`, `text.json`, `props.json`, `atmos.json`, `rules.json` and the goldens have no diff against v6 (5bde868).
+- **Played and looked at (Development game of the package, `-sm5`, about 60 fps, GPU 2.6 to 2.9 ms of a 16.7 ms frame
+  at the 0.75 picture scale; the box GPU was shared with another lane's runs, so this is a look, not a measurement).**
+  - The Block: front end, the run, three Goons killed, `MICampaign finish`: "THE BLOCK IS YOURS", Diamond, progress code,
+    "NEXT: CANAL STREET".
+  - Campaign path on the stream (frames every 0.5 s): Next, the loading card ("LEVEL 2 OF 3 CANAL STREET ... LOADING"),
+    then Canal Street with its title card. In 200 frames there was no gap above 1 s and one black frame (about 0.5 s)
+    between the card and the map.
+  - Canal Street (art map, night): lit street, market tables, truck, guide markers, fire, reload. A run to the case
+    killed four Goons that spawned about 30 m out; `MICampaign finish`: the debrief "CANAL IS YOURS" with the code and
+    "NEXT: MIDTOWN".
+  - Midtown (art map, night): the roof start with the water tower, the lit skyline and the screens; a Goon on the roof
+    fires at the player (muzzle flash, health falling), guide marker, scaffold and plank walls when the player walks;
+    the debrief "THE CITY IS YOURS" with no Next.
+- **Not proven.** Goons close up in a fight on the streets of Canal (the pictures show them far or flashing); aim assist
+  (not driven: the viewer's mouse moves were not aimed at a Goon); reel pickup by the director (`grab` timed out on
+  Canal and Midtown with the player 1.4 m from the case; the director walks in straight lines and gets stuck on
+  furniture, so this is the director's range, not shown to be a game fault); the Hold-mode album card; the stream to
+  E3DS itself (only the box's viewer); frame time on the A4000.
