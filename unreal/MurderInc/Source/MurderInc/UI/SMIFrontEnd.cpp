@@ -1,4 +1,5 @@
 #include "UI/SMIFrontEnd.h"
+#include "Widgets/Input/SEditableTextBox.h"
 #include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Brushes/SlateColorBrush.h"
@@ -1111,6 +1112,24 @@ TSharedRef<SWidget> SMIFrontEnd::Where()
 				+ SVerticalBox::Slot().AutoHeight()[Txt(R.GetData().Format(TEXT("frontend.level.modes"), {{TEXT("modes"), FString::Join(ModeNames, TEXT(" · "))}}), Body(MinText), InkFaint(), true)]
 				+ SVerticalBox::Slot().AutoHeight()[Txt(State, Body(MinText, true), bOpen ? Gold() : Red(), true)]
 			]
+		];
+	}
+	// The progress code: shown, and typed to pick up where a session left off (the stream gives every session a fresh save).
+	{
+		const FString Code = Owner->GetGame() ? Owner->GetGame()->ProgressCode() : FString();
+		Levels->AddSlot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Txt(R.Text(TEXT("frontend.campaign.codeLabel")).ToUpper() + TEXT("  ") + Code, Spaced(Body(MinText, true), 100), InkDim())]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(14.f, 0.f, 0.f, 0.f)
+			[
+				SNew(SBox).WidthOverride(190.f)
+				[
+					SNew(SEditableTextBox).Font(Body(MinText, true)).HintText(FText::FromString(TEXT("Enter a code")))
+					.OnTextCommitted_Lambda([O](const FText& T, ETextCommit::Type C) { if (C == ETextCommit::OnEnter && O.IsValid()) O->Act(TEXT("code"), T.ToString()); })
+				]
+			]
+			+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center).Padding(14.f, 0.f, 0.f, 0.f)[Txt(R.LastMessage, Body(MinText, true), Gold(), true)]
 		];
 	}
 	// 2. Time.
