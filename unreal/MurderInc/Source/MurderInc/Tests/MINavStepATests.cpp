@@ -144,6 +144,45 @@ namespace MINavStepAPrivate
 		}
 	};
 
+	/**
+	 * Where a player could stand in the street (layer 0) so that a Goon on `Layer` has somewhere to fight him from: the street cell
+	 * (6 to 26 m from the Goon) that the most roof cells of the Goon's area (within 30 m) can shoot at. False when none can.
+	 */
+	bool StreetSpotUnder(FMap& M, const FVector& GoonPos, int32 Layer, FVector& Out, int32& OutSightCells)
+	{
+		OutSightCells = 0;
+		FMIBoxWorld& W = M.World;
+		for (double X = GoonPos.X - 26.0; X <= GoonPos.X + 26.0; X += 3.0)
+		{
+			for (double Z = GoonPos.Z - 26.0; Z <= GoonPos.Z + 26.0; Z += 3.0)
+			{
+				const double D = FVector::Dist2D(FVector(X, 0, Z), GoonPos);
+				if (D < 6.0 || D > 26.0 || !W.IsWalkable(X, Z, 0))
+				{
+					continue;
+				}
+				const FVector Eye(X, 1.6, Z);
+				int32 Count = 0;
+				for (double Cx = GoonPos.X - 30.0; Cx <= GoonPos.X + 30.0; Cx += 1.0)
+				{
+					for (double Cz = GoonPos.Z - 30.0; Cz <= GoonPos.Z + 30.0; Cz += 1.0)
+					{
+						if (W.IsWalkable(Cx, Cz, Layer) && W.LineOfSight(FVector(Cx, M.Spec.Layers[Layer].Y + 1.4, Cz), Eye) && W.SameRegion(Layer, GoonPos, FVector(Cx, GoonPos.Y, Cz)))
+						{
+							++Count;
+						}
+					}
+				}
+				if (Count > OutSightCells)
+				{
+					OutSightCells = Count;
+					Out = FVector(X, 0, Z);
+				}
+			}
+		}
+		return OutSightCells > 0;
+	}
+
 	/** Records every round; nobody is hurt. */
 	struct FHost : public IMIEnemyHost
 	{
@@ -305,6 +344,13 @@ bool FMINavMidtownTest::RunTest(const FString& Parameters)
 		}
 		FVector PlayerPos = M.Level.Spawns[BestStreet].Pos;
 		PlayerPos.Y = 0.0;
+		int32 Sight = 0;
+		if (!TestTrue(FString::Printf(TEXT("%s: some street cell can be shot at from the roof"), *Roof.ToString()), StreetSpotUnder(M, M.Level.Spawns[BestRoof].Pos, M.World.LayerForY(M.Level.Spawns[BestRoof].Pos.Y), PlayerPos, Sight)))
+		{
+			continue;
+		}
+		BestD = FVector::Dist2D(PlayerPos, M.Level.Spawns[BestRoof].Pos);
+		AddInfo(FString::Printf(TEXT("%s: the player stands at (%.0f, %.0f) with %d roof cells that see him"), *Roof.ToString(), PlayerPos.X, PlayerPos.Z, Sight));
 		FFight F(M, *this, PlayerPos);
 		if (!F.bLoaded)
 		{
@@ -421,7 +467,16 @@ bool FMINavChinatownTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("a roof spawn is on a walkable roof cell"), M.World.NearestWalkable(Spot.X, Spot.Z, 4.0, Cell, 1));
 	}
 	struct FCase { const TCHAR* Name; FVector Player; };
-	const FCase Cases[2] = {{TEXT("player on the roof"), FVector(-15.0, 5.7, -4.0)}, {TEXT("player in the street"), StreetSpots[0]}};
+	// The roof player stands at the roof cell nearest the first street spot (the parapet over the street), so the street can see him.
+	FVector RoofEdge = FVector(-15.0, 5.7, -4.0);
+	{
+		FVector Cell;
+		if (M.World.NearestWalkable(StreetSpots[0].X, StreetSpots[0].Z, 40.0, Cell, 1))
+		{
+			RoofEdge = FVector(Cell.X, 5.7, Cell.Z);
+		}
+	}
+	const FCase Cases[2] = {{TEXT("player on the roof"), RoofEdge}, {TEXT("player in the street"), StreetSpots[0]}};
 	for (const FCase& C : Cases)
 	{
 		FVector P = C.Player;

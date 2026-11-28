@@ -1049,10 +1049,13 @@ int32 FMIEnemyField::AddFiringCells(int32 N, const FMIEnemy& E, const FVector& T
 	{
 		return N;
 	}
-	for (int32 I = 0; I < 18 && N < MaxCandidates; ++I)
+	// The first cells are close to the seed (a parapet over the player); the rest are spread over the whole disc around the
+	// target, because a shot at a body many metres up or down needs room to stand back from the wall that hides it.
+	const double Spread = FMath::Min(Range, T.ShotRange) * 0.85;
+	for (int32 I = 0; I < 30 && N < MaxCandidates; ++I)
 	{
 		FVector P = Seed;
-		if (I > 0 && !World->RandomPoint(Seed, 9.0, P, E.Layer))
+		if (I > 0 && !World->RandomPoint(I < 8 ? Seed : FVector(TargetPos.X, 0, TargetPos.Z), I < 8 ? 9.0 : Spread, P, E.Layer))
 		{
 			continue;
 		}
