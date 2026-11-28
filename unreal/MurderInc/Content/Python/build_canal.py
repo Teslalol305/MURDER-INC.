@@ -154,6 +154,31 @@ def sign_units(force):
         yield "sign " + name, (lambda n=name, a=atlas, u=uv: make_sign_instance(n, a, u, force))
 
 
+# ------------------------------------------------------------------------------------------------ wet ground
+
+WET = {"MI_Ground_Asphalt": "MI_CT_Asphalt_Wet", "MI_Ground_Concrete": "MI_CT_Concrete_Wet",
+       "MI_Grey_Concrete": "MI_CT_Sidewalk_Wet"}
+WETNESS = 0.85     # the street after rain: the master's wetness (darker, roughness toward 0.08 where the set's alpha allows)
+
+
+def wet_units(force):
+    for src, name in WET.items():
+        def make(s=src, n=name):
+            dst = "%s/%s" % (B.MAT_DIR, n)
+            if ASSETS.does_asset_exist(dst) and not force:
+                return "exists"
+            if ASSETS.does_asset_exist(dst):
+                ASSETS.delete_asset(dst)
+            ASSETS.duplicate_asset("%s/%s" % (B.MAT_DIR, s), dst)
+            inst = unreal.load_asset(dst)
+            modes = B.LIB.get_material_instance_vector_parameter_value(inst, "Modes")
+            B.LIB.set_material_instance_vector_parameter_value(inst, "Modes", unreal.LinearColor(modes.r, modes.g, modes.b, WETNESS))
+            B.LIB.update_material_instance(inst)
+            ASSETS.save_asset(dst, only_if_is_dirty=False)
+            return "created"
+        yield "wet " + name, make
+
+
 # ------------------------------------------------------------------------------------------------ the level
 
 def open_map():
@@ -177,7 +202,8 @@ def ground_units(lv):
         count = 0
         for k, s in enumerate(lv["ground"]["surfaces"]):
             ue = s["ue"]
-            m = mat(B.GROUND_SURFACE.get(s["surface"], B.GROUND_SURFACE["concrete"])[0])
+            gname = B.GROUND_SURFACE.get(s["surface"], B.GROUND_SURFACE["concrete"])[0]
+            m = mat(WET.get(gname, gname))
             B.spawn_box("Ground_%02d_%s" % (k, s["surface"]), FOLDER + "/Ground",
                         ((ue["minX"] + ue["maxX"]) / 2, (ue["minY"] + ue["maxY"]) / 2, -5.0),
                         ((ue["maxX"] - ue["minX"]) / 2, (ue["maxY"] - ue["minY"]) / 2, 5.0), m)
@@ -209,6 +235,8 @@ def mass_units(lv):
                 name = B.GREY_SURFACE.get(b["surface"], B.GREY_SURFACE["other"])[0]
                 if tag in B.TAG_SURFACE:
                     name = B.TAG_SURFACE[tag][0]
+                if tag == "sidewalk":
+                    name = WET.get(name, name)
                 c, e = b["ue"]["center"], b["ue"]["extent"]
                 inset = 0.0 if tag in SOLID_TOPS else 3.0
                 ex = max(e["X"] - inset, 0.5)
@@ -446,6 +474,7 @@ def start(steps="all", force=False):
     B.STEPS["meshes"] = mesh_units
     B.STEPS["paints"] = paint_units
     B.STEPS["signs"] = sign_units
+    B.STEPS["wet"] = wet_units
     B.STEPS["canal"] = level_units
-    names = "textures,materials,meshes,paints,signs,canal" if steps == "all" else steps
+    names = "textures,materials,meshes,paints,signs,wet,canal" if steps == "all" else steps
     return B.start(names, force=force)
