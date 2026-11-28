@@ -1,13 +1,16 @@
 // The three levels and the campaign through them (docs/unreal/maps/progression.md, data_contract.md).
 //   MurderInc.Levels.Chinatown.Loads   level_chinatown.json loads through FMILevelData::ForLevel: the counts of the contract, no deck, the
-//                                      disabled roof points, the text overlay, the audio zones; the level boots in a world and starts a run
+//                                      roof points (enabled), the text overlay, the audio zones; the level boots in a world and starts a run
 //   MurderInc.Levels.Midtown.Loads     the same for Midtown: afterAll truck (colliders out of the world until the last reel), tuning, nav layers
+//   MurderInc.Levels.Chinatown.RoofCamp  a player parked mid-roof on Canal keeps being fought (a shot within 20 s, shots in most 10 s windows of 90 s)
 //   MurderInc.Campaign.Code            the progress code against the reference vectors of progression.md Appendix A (an oracle run in Python),
 //                                      every one-character change refused
 //   MurderInc.Campaign.Unlocks         level 1 always open, a clear opens the next, ratings only go up, merge, the save fields, old saves
 //   MurderInc.Campaign.BlockUnchanged  the Block is the Block: the same object from Get() and ForLevel("block"), its files byte for byte (size)
 
 #include "Core/Data/MIDataSubsystem.h"
+#include "Core/MIEvents.h"
+#include "Enemies/MIEnemies.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Flow/MIFrontEndRules.h"
@@ -19,6 +22,7 @@
 #include "Misc/Paths.h"
 #include "Player/MIPlayerCharacter.h"
 #include "Tests/MITestUtil.h"
+#include "World/MIBoxWorld.h"
 #include "World/MILevelData.h"
 
 #if WITH_AUTOMATION_TESTS
@@ -155,7 +159,7 @@ namespace MICampaignTestsPrivate
 		const FVector Feet = W.Player->GetActorLocation();
 		const FVector Want = FVector(L->PlayerStart.Pos.X * 100.0, L->PlayerStart.Pos.Z * 100.0, 0.0);
 		T.TestTrue(TEXT("the player started at the level's start"), FVector::Dist2D(Feet, Want) < 600.0);
-		// The Goons come from enabled points only: none is a roof point of a layer that is switched off.
+		// The Goons come from enabled points only; Canal's roof points are enabled, Midtown's roofs have Goons on them too.
 		FMIEnemyField& Field = W.Game->GetEnemies();
 		int32 Alive = 0;
 		for (const int32 S : Field.GetList())
@@ -163,7 +167,7 @@ namespace MICampaignTestsPrivate
 			const FMIEnemy& E = Field.GetSlots()[S];
 			if (!E.bAlive) continue;
 			++Alive;
-			T.TestTrue(TEXT("a Goon is not on a switched-off roof point"), E.Pos.Y < 2.0 || Id == FName(TEXT("midtown")));
+			T.TestTrue(TEXT("a Goon stands on a point of the level"), E.Pos.Y < 2.0 || Id == FName(TEXT("midtown")) || Id == FName(TEXT("chinatown")));
 		}
 		T.AddInfo(FString::Printf(TEXT("%s: %d Goons alive after 15 s"), *Id.ToString(), Alive));
 		return true;
@@ -174,7 +178,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMILevelsChinatownLoadsTest, "MurderInc.Levels.
 bool FMILevelsChinatownLoadsTest::RunTest(const FString&)
 {
 	using namespace MICampaignTestsPrivate;
-	if (!CheckLevel(*this, TEXT("chinatown"), 38, 18, false, 3, 2, TEXT("Canal")))
+	if (!CheckLevel(*this, TEXT("chinatown"), 38, 18, false, 0, 2, TEXT("Canal")))
 	{
 		return false;
 	}
@@ -385,6 +389,113 @@ bool FMICampaignBlockUnchangedTest::RunTest(const FString&)
 	TestTrue(TEXT("text loads"), FMIText::Load(Plain, Error) && FMIText::Load(Block2, Error, TEXT("block")));
 	TestEqual(TEXT("the Block's radio intro, with or without the id"), Block2.Get(TEXT("radio.intro.text")), Plain.Get(TEXT("radio.intro.text")));
 	TestTrue(TEXT("it is the Block's"), Plain.Get(TEXT("radio.intro.text")).Contains(TEXT("chop shop")));
+	return true;
+}
+
+// Canal's roof is not a safe place: a player parked mid-roof in a mission run keeps being fought. The street Goons that have no
+// firing cell are returned to the pool (the stranded rule) and the run replaces each one, from a roof spawn that can reach or see him.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMILevelsChinatownRoofCampTest, "MurderInc.Levels.Chinatown.RoofCamp", MITest::Flags)
+bool FMILevelsChinatownRoofCampTest::RunTest(const FString&)
+{
+	using namespace MICampaignTestsPrivate;
+	FActiveLevel Active(TEXT("chinatown"));
+	FLevelWorld W;
+	FMIBootOptions O;
+	O.Level = TEXT("chinatown");
+	O.bTitle = false;
+	O.Mode = TEXT("mission");
+	O.Difficulty = TEXT("hustler");
+	O.bPersist = false;
+	O.bDrawGrey = false;
+	if (!TestTrue(TEXT("Canal boots in a world"), W.Player && W.Game && W.Game->Boot(O)))
+	{
+		return false;
+	}
+	W.Game->StartRun(TEXT("mission"), true);
+	W.Player->GetPlayerRules().bInvulnerable = true;
+	for (int32 I = 0; I < 900; ++I)
+	{
+		W.Step();
+	}
+	TestEqual(TEXT("the run is on"), W.Game->GetRules().GetState(), EMIGameState::Playing);
+	// Park the player mid-roof, as the finding did, and let the Goons find out.
+	const FVector RoofAt = MI::Web::ToUnreal(FVector(-12.0, 5.7, 0.0));
+	W.Player->TeleportFeet(RoofAt);
+	// Three street Goons who are on to him (the shots that brought him up here woke them): alerted, as a wave's Goons arrive.
+	FMIEnemyField& Foes = W.Game->GetEnemies();
+	Foes.Clear();
+	FMIEnemySpawnOptions Hunt;
+	Hunt.bAlerted = true;
+	const FVector Camp = MI::Web::FromUnreal(W.Player->GetPlayerRules().Feet);
+	Hunt.Target = Camp;
+	Foes.SetLivePlayerPos(Camp);
+	for (const FVector& At : {FVector(-28.0, 0.1, -4.0), FVector(-6.5, 0.1, 4.2), FVector(-13.0, 0.1, 9.2)})
+	{
+		Foes.Spawn(MIEnemy::EType::Goon, At, Hunt);
+	}
+	int32 Shots = 0;
+	FMIGameEvents* Events = UMIEventSubsystem::Get(W.World);
+	if (!TestNotNull(TEXT("the event bus"), Events))
+	{
+		return false;
+	}
+	const FDelegateHandle Handle = Events->Enemy.AddLambda([&](const FMIEnemyEvent& E) { if (E.Kind == FMIEnemyEvent::EKind::Fire) ++Shots; });
+	constexpr int32 Windows = 9;
+	int32 ShotsIn[Windows] = {};
+	int32 RoofSeen = 0, MinAlive = 99, Frames = 0;
+	double FirstShot = -1.0;
+	for (int32 F = 0; F < 90 * 60; ++F)
+	{
+		const int32 Before = Shots;
+		// The test world has no floor under the roof: hold the player on it, as the roof's floor would.
+		W.Player->TeleportFeet(RoofAt);
+		W.Step();
+		++Frames;
+		const double T = F * Dt;
+		if (Shots > Before)
+		{
+			ShotsIn[FMath::Min(Windows - 1, static_cast<int32>(T / 10.0))] += Shots - Before;
+			if (FirstShot < 0)
+			{
+				FirstShot = T;
+			}
+		}
+		if (F % 60 == 0)
+		{
+			int32 Alive = 0;
+			FMIEnemyField& Field = W.Game->GetEnemies();
+			for (const int32 S : Field.GetList())
+			{
+				const FMIEnemy& E = Field.GetSlots()[S];
+				if (E.bAlive)
+				{
+					++Alive;
+					RoofSeen += E.Pos.Y > 2.0 ? 1 : 0;
+				}
+			}
+			if (F >= 15 * 60)
+			{
+				MinAlive = FMath::Min(MinAlive, Alive);
+			}
+			if (F % 600 == 0)
+			{
+				AddInfo(FString::Printf(TEXT("roof camp t=%d s: %d Goons alive, %d shots so far"), F / 60, Alive, Shots));
+			}
+		}
+	}
+	Events->Enemy.Remove(Handle);
+	FString Line;
+	int32 Hot = 0;
+	for (int32 I = 0; I < Windows; ++I)
+	{
+		Line += FString::Printf(TEXT("%d "), ShotsIn[I]);
+		Hot += ShotsIn[I] > 0 ? 1 : 0;
+	}
+	AddInfo(FString::Printf(TEXT("roof camp: first shot at %.1f s, shots per 10 s window: %s, fewest Goons alive after 15 s %d, roof-Goon samples %d"), FirstShot, *Line, MinAlive, RoofSeen));
+	TestTrue(TEXT("a Goon engages the roof player within 20 s"), FirstShot >= 0.0 && FirstShot < 20.0);
+	TestTrue(TEXT("the roof player is fought again and again over 90 s (shots in at least 7 of 9 ten-second windows)"), Hot >= 7);
+	TestTrue(TEXT("the stranded street Goons are replaced: some are alive at every sample after 15 s"), MinAlive >= 1);
+	TestTrue(TEXT("a replacement comes from a roof spawn and stays on the roof"), RoofSeen > 0);
 	return true;
 }
 

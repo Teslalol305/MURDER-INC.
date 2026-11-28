@@ -3,8 +3,8 @@
  "file": "tools/levels/data/level_chinatown.json",
  "tool": "tools/levels/check_level.py",
  "summary": {
-  "pass": 37,
-  "warn": 1,
+  "pass": 38,
+  "warn": 0,
   "waived": 1,
   "fail": 0
  },
@@ -152,8 +152,8 @@
   },
   {
    "check": "spawns.allEnabledForRelease",
-   "result": "WARN",
-   "detail": "3 points still carry enabled:false (rf1, rf2, rf3): the loader must skip them (MAPS.md E8) and the release turns them on once nav step A exists"
+   "result": "PASS",
+   "detail": "every spawn point is enabled"
   },
   {
    "check": "reach.navCellNearEveryReel",

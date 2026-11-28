@@ -160,6 +160,8 @@ private:
 		double At = 0;
 		FVector Pos = FVector::ZeroVector;
 		int32 Tries = 0;
+		/** Stands in for a Goon returned to the pool as stranded: never dropped for lack of a place or a free slot. */
+		bool bReplacement = false;
 	};
 
 	void ForwardEnemyEvents();
@@ -174,7 +176,8 @@ private:
 	void RefreshObjective();
 	void RefreshTally();
 	void ShowPrompt(const FString* Text, double Progress);
-	bool ChoosePosition(FName Type, double MinDistance, bool bStrict, FVector& Out);
+	/** RequireLayer (a level with nav layers only): only spawn points of that layer; false when it has none. */
+	bool ChoosePosition(FName Type, double MinDistance, bool bStrict, FVector& Out, int32 RequireLayer = INDEX_NONE);
 	void SpawnPatrol();
 	bool QueueWave(const TArray<FName>& Order, double FirstDelay, double Stagger, FString& OutFrom);
 	void PumpQueue();
@@ -209,6 +212,8 @@ private:
 	FName Difficulty = TEXT("boss");
 	FRun Run;
 	TArray<FArrival> Queue;
+	/** Stranded Goons returned to the pool that have no replacement queued yet (no place to put one this frame). */
+	int32 OwedReplacements = 0;
 	FMIFlowDifficulty Diff;
 	int32 MaxAlive = 11;
 	double StateTime = 0, Clock = 0, IntroLength = 0;

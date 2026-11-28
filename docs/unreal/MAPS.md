@@ -533,3 +533,18 @@ Block did not have, in one art-in folder (`MI_ART_MT`, default `/project/ue/art-
   rooms are the art's rooms with the reels spawned by the game from the data; nothing of the map was played, no Goon
   walked it, no test suite was run on it; per-face atlas cells of the sign faces are the meshes' default cells (the
   name plates and the billboard show their default face); no Higgsfield props were needed; no `-sm5` frame time.
+
+## Canal's roof is no safe spot (2026-11-28)
+
+- **Decision (the lead).** Canal's roof spawns rf1 to rf3 are enabled: nav step A keeps a Goon on his own layer, so a Goon
+  spawned there fights a player on the roof and across to the street. A stranded street Goon (no firing cell, the N4
+  rule) is returned to the pool as before; his replacement now prefers a spawn point on the player's own layer, so a
+  roof player gets a roof Goon and a street player a street Goon, and any level falls back to the old choice when that
+  layer has no point. A replacement is one for one (the wave's count and the alive cap hold), and it is never dropped
+  for want of a place or a free slot: it stays owed or queued until a Goon can be spawned. The Block has no nav layers,
+  never strands a Goon, and its data and goldens are untouched.
+- **Test.** `MurderInc.Levels.Chinatown.RoofCamp`: a mission run on Canal, the player held mid-roof (-12, 5.7, 0) with
+  three alerted street Goons: a Goon fires within 20 s, shots land in at least 7 of the nine 10 s windows of 90 s, some
+  Goon is alive at every sample after 15 s, and replacements stand on the roof. Before the change the same run showed 3
+  street Goons recycled again and again and no shot at all in 90 s. The first fight comes after about 10 s: the stranded
+  window of the street Goons.

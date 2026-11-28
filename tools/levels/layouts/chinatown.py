@@ -24,8 +24,8 @@ def build():
         "bounds so today's loader can read the file (every deck test is a point-in-rectangle check, so it never applies).",
         "nav: the layers, links and spawn reach are written; the grids are not. The engine bake (-run=MILevelBake) writes "
         "`nav.layers[*].grid` with FMIBoxWorld's own code.",
-        "Roof spawns rf1 to rf3 carry enabled:false until nav step A exists (chinatown.md 4.4); the release ships with "
-        "them on.",
+        "Roof spawns rf1 to rf3 are enabled (2026-11-28): nav step A keeps a Goon on his own layer, so a Goon spawned there "
+        "fights a player on the roof, and a stranded street Goon's replacement comes from there (Levels.Chinatown.RoofCamp).",
         "Signs and screens: English only, invented names (owner's answer 2026-11-26).",
     ]
     L.deviations = ["No air points (the design's 18): the drones are removed from the game (owner, 2026-11-28)."]
@@ -368,9 +368,9 @@ def build():
                        ("t9", 24.8, SW, 30.4)):
         g(n, x, y, z)
     ov = ["canal", "alley", "market"]
-    g("rf1", -21.4, ROOF, 8.0, layer="roof", overlooks=ov, enabled=False, note="at the B0 bulkhead door")
-    g("rf2", -4.0, ROOF, -12.4, layer="roof", overlooks=ov, enabled=False, note="behind the rooftop letters' legs")
-    g("rf3", -24.0, ROOF, -5.0, layer="roof", overlooks=ov, enabled=False, note="behind the west condenser")
+    g("rf1", -21.4, ROOF, 8.0, layer="roof", overlooks=ov, note="at the B0 bulkhead door")
+    g("rf2", -4.0, ROOF, -12.4, layer="roof", overlooks=ov, note="behind the rooftop letters' legs")
+    g("rf3", -24.0, ROOF, -5.0, layer="roof", overlooks=ov, note="behind the west condenser")
     # 2026-11-28: drones removed by the owner: the level has no air points (the 18 Buzzard points of the first build are gone).
 
     # ------------------------------------------------------------------ cover: props and named solids 0.8 m or taller that block shots

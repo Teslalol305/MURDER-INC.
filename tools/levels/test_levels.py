@@ -97,11 +97,13 @@ class Levels(unittest.TestCase):
         for i in d["extraction"]["truck"]["colliders"]:
             self.assertEqual(d["colliders"]["boxes"][i]["owner"]["kind"], "truck")
 
-    def test_canal_roof_spawns_disabled(self):
+    def test_canal_roof_spawns_enabled(self):
+        # Nav step A keeps Goons on their own layer: the roof spawns are on, so a roof player is fought (RoofCamp).
         pts = self.docs["chinatown"]["enemySpawns"]["points"]
-        off = [p["name"] for p in pts if p.get("enabled") is False]
-        self.assertEqual(off, ["rf1", "rf2", "rf3"])
-        self.assertTrue(all(p["layer"] == "roof" for p in pts if p.get("enabled") is False))
+        self.assertEqual([p["name"] for p in pts if p.get("enabled") is False], [])
+        roof = [p for p in pts if p["layer"] == "roof"]
+        self.assertEqual(sorted(p["name"] for p in roof), ["rf1", "rf2", "rf3"])
+        self.assertTrue(all(p.get("enabled", True) and p.get("overlooks") for p in roof))
 
 
 if __name__ == "__main__":

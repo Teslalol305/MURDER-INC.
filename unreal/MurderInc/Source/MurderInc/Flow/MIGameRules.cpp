@@ -147,6 +147,7 @@ void FMIGameRules::Reset()
 {
 	const bool bStory = Mode == NMission;
 	Queue.Reset();
+	OwedReplacements = 0;
 	LastUsed.Reset();
 	Secured.Reset();
 	Clock = 0;
@@ -267,6 +268,7 @@ void FMIGameRules::Resume()
 void FMIGameRules::ToTitle()
 {
 	Queue.Reset();
+	OwedReplacements = 0;
 	if (Host && Level)
 	{
 		Host->ResetPlayer(Level->PlayerStart.Pos, Level->PlayerStart.Yaw);
@@ -350,7 +352,7 @@ void FMIGameRules::ShowPrompt(const FString* Line, double Progress)
 
 // -------------------------------------------------------------------------------------------------- spawning
 
-bool FMIGameRules::ChoosePosition(FName Type, double MinDistance, bool bStrict, FVector& Out)
+bool FMIGameRules::ChoosePosition(FName Type, double MinDistance, bool bStrict, FVector& Out, int32 RequireLayer)
 {
 	const bool bAir = Type == NBuzzard;
 	const FName Wanted = bAir ? FName(TEXT("air")) : FName(TEXT("ground"));
@@ -392,6 +394,10 @@ bool FMIGameRules::ChoosePosition(FName Type, double MinDistance, bool bStrict, 
 			{
 				continue;
 			}
+			if (bLayers && RequireLayer != INDEX_NONE && World->LayerForY(Point.Pos.Y) != RequireLayer)
+			{
+				continue;
+			}
 			const double Distance = Hypot(Point.Pos.X - P.X, Point.Pos.Z - P.Z);
 			const bool bFar = Distance >= MinDistance;
 			if (bStrict && bBestFar && !bFar)
@@ -417,6 +423,10 @@ bool FMIGameRules::ChoosePosition(FName Type, double MinDistance, bool bStrict, 
 				bBestFar = bFar;
 			}
 		}
+	}
+	if (!Best && bLayers && RequireLayer != INDEX_NONE)
+	{
+		return false;
 	}
 	if (Best)
 	{
@@ -528,16 +538,24 @@ bool FMIGameRules::QueueWave(const TArray<FName>& Order, double FirstDelay, doub
 	return true;
 }
 
-/** A Goon returned to the pool as stranded (nav step A) gives his wave slot back: one new Goon is queued near the player. */
+/** A Goon returned to the pool as stranded (nav step A) gives his wave slot back: one new Goon is queued near the player, on the
+ *  player's own layer when it has a spawn point (a Goon on the roof layer can fight a roof player, a street Goon cannot), else
+ *  anywhere the level allows. He is one for one, so the wave's count and the alive cap hold; a place that is not there this frame
+ *  leaves the Goon owed, not dropped. A level without nav layers never strands a Goon, so the Block is untouched. */
 void FMIGameRules::RequeueRecycled()
 {
-	for (int32 N = Enemies->TakeRecycled(); N > 0; --N)
+	OwedReplacements += Enemies->TakeRecycled();
+	while (OwedReplacements > 0)
 	{
 		FVector Pos;
-		if (ChoosePosition(NGoon, Tune.Far, false, Pos))
+		const bool bLayers = World->HasLayers();
+		const int32 PlayerLayer = bLayers ? World->LayerAt(Player.Pos) : INDEX_NONE;
+		if (!(bLayers && ChoosePosition(NGoon, Tune.Far, false, Pos, PlayerLayer)) && !ChoosePosition(NGoon, Tune.Far, false, Pos))
 		{
-			Queue.Add({NGoon, Clock + Tune.PoolRetry, Pos, 0});
+			return;
 		}
+		Queue.Add({NGoon, Clock + Tune.PoolRetry, Pos, 0, true});
+		--OwedReplacements;
 	}
 }
 
@@ -578,7 +596,7 @@ void FMIGameRules::PumpQueue()
 		Enemies->Alert(P, Tune.AlertRadius);
 		ForwardEnemyEvents();
 	}
-	else if (++Next.Tries >= Tune.PoolTries)
+	else if (++Next.Tries >= Tune.PoolTries && !Next.bReplacement)
 	{
 		Queue.RemoveAt(Index);
 	}

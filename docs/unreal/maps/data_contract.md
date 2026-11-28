@@ -16,7 +16,7 @@ air point, no Buzzard setting and no doorway in either file.
 - `enemySpawns.points[]`: `type` is always `"ground"` (zero `air` points). Each point also has `layer` (string, id of a
   `nav.layers[]` entry) and `name` (`c1`, `g12`, `rf1` ...); an optional `overlooks` (array of zone ids) and `enabled`
   (bool, absent means true) and `enabledWhen` (text only). **The loader must skip a point with `enabled: false`** (E8).
-  Canal has three (`rf1`..`rf3`, layer `roof`) until nav step A lands; Midtown none.
+  Canal's three (`rf1`..`rf3`, layer `roof`) were disabled until nav step A and are enabled since 2026-11-28; no level has one off now.
 - `objectives[]` and `extraction` carry `layer` (string). `extraction.arrival` is `"afterAll"` on Midtown only (E10):
   the truck is hidden, its colliders (`extraction.truck.colliders`, indices into `colliders.boxes`, owner kind `truck`)
   stay out of the box world and the zone is inactive until every reel is secured, then a 5 s roll-in. Canal's truck is

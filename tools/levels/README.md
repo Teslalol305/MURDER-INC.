@@ -42,8 +42,8 @@ optional and absent from the Block's file, so the Block's code path is unchanged
   flights), `spawnReach`, `firingCellRange`, `strandedAfter`. **`grid` is null**: the grids are written by the engine
   bake (`-run=MILevelBake`, MAPS.md D2) with FMIBoxWorld's own code, never by this tool (the designs' rule: no second,
   Python copy of the nav rules in the data). The checker's mirror is for testing only.
-- spawn points carry `layer`, `name`, and on Canal's roof `overlooks` and `enabled: false` (off until nav step A;
-  the loader must skip a disabled point, MAPS.md E8, and `check_level.py --release` fails while one is left);
+- spawn points carry `layer`, `name`, and on Canal's roof `overlooks` (its three roof spawns are enabled since 2026-11-28; a point with
+  `enabled: false` is skipped by the loader, MAPS.md E8, and `check_level.py --release` fails while one is left);
   objectives carry `layer`; Midtown's `extraction` carries `arrival: "afterAll"` and its truck colliders are owner kind
   `truck` and not noNav: the bake blocks the stop spot from the start, the box world takes the colliders on arrival (E10).
 - `guide`: both levels carry the route graph (`mode: routeGraph`, `guide.graph` nodes and edges: links both ways, drops
@@ -103,8 +103,8 @@ WAIVED and printed with the reason. WARN is used for one advisory check only (`s
 | sight.* | eye to eye at 1.6 m, street cells sampled every 1 or 2 m: Canal no open line over 81 m (the 77 m start-to-truck line between nav cells) and none over 45 m along the south sidewalk (the protected lane); Midtown none over 45 m in the square (midtown.md 10) |
 | slot.booth.* | Midtown: a ray passes the booth's slot; its frame is playerOnly |
 
-Results on the committed files: **Canal Street 37 pass, 1 warn, 1 waived, 0 fail; Midtown 36 pass, 0 warn, 1 waived,
-0 fail** (the reports have every number). The warn is Canal's three roof spawns, still disabled until nav step A. The
+Results on the committed files: **Canal Street 38 pass, 0 warn, 1 waived, 0 fail; Midtown 36 pass, 0 warn, 1 waived,
+0 fail** (the reports have every number). The warn Canal had (its three roof spawns, disabled) is gone since they are enabled. The
 waivers: Canal's leg-4 route tie (6 %, the guidance's path hysteresis, MAPS.md G4) and Midtown's two long legs (the
 design counted the steel stair and the scaffold short; the rating times are re-timed in the grey box).
 
@@ -151,7 +151,7 @@ Midtown:
 - **Canal leg 4 (WAIVED):** the guidance's path hysteresis (G4) keeps the drawn route until another is 10 % shorter.
 - **Midtown legs (WAIVED):** start to Reel 7 42.5 m (design 37), Reel 8 to Reel 9 135 m (108): re-time the rating in the
   grey box.
-- Canal's roof spawns stay disabled until nav step A; the loader must honour `enabled` (E8); `--release` fails until then.
+- Canal's roof spawns were disabled until nav step A and are enabled since 2026-11-28; the loader still honours `enabled` (E8) and `--release` fails while a point is left disabled.
 - Nav step A (N1 to N4) and the loader's `el`/`ForLevel` (E1, E2) are C++ for lanes N and E: nothing here replaces
   them. The checks above are design checks; Levels.<Id>.Loads / .Nav / .Reach / .Edges / .ReelRooms in the
   engine stay the authority.
