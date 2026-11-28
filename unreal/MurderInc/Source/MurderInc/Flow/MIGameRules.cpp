@@ -359,11 +359,18 @@ bool FMIGameRules::ChoosePosition(FName Type, double MinDistance, bool bStrict, 
 	const FMILevelPoint* Best = nullptr;
 	double BestScore = -MIEnemy::Inf;
 	bool bBestFar = false;
+	// Nav step A (midtown.md 7.2): a ground spawn is a candidate only on a layer within reach of the player's own.
+	const bool bLayers = !bAir && World->HasLayers();
+	const int32 PlayerLayer = bLayers ? World->LayerAt(P) : 0;
 	if (Level)
 	{
 		for (const FMILevelPoint& Point : Level->Spawns)
 		{
 			if (Point.Type != Wanted)
+			{
+				continue;
+			}
+			if (bLayers && !World->GetNavSpec().Allows(PlayerLayer, World->LayerForY(Point.Pos.Y)))
 			{
 				continue;
 			}
@@ -398,6 +405,29 @@ bool FMIGameRules::ChoosePosition(FName Type, double MinDistance, bool bStrict, 
 		LastUsed.Add(Best->Index, Clock);
 		Out = Best->Pos;
 	}
+	else if (bLayers && PlayerLayer != 0)
+	{
+		// On a roof the 26 m ring would land on the street: the nearest authored ground point instead.
+		const FMILevelPoint* Nearest = nullptr;
+		double NearestD = MIEnemy::Inf;
+		if (Level)
+		{
+			for (const FMILevelPoint& Point : Level->Spawns)
+			{
+				const double D = Hypot(Point.Pos.X - P.X, Point.Pos.Z - P.Z);
+				if (Point.Type == Wanted && D < NearestD)
+				{
+					Nearest = &Point;
+					NearestD = D;
+				}
+			}
+		}
+		if (!Nearest)
+		{
+			return false;
+		}
+		Out = Nearest->Pos;
+	}
 	else
 	{
 		const double A = Rng.Range(0, UE_DOUBLE_PI * 2.0);
@@ -425,7 +455,7 @@ bool FMIGameRules::ChoosePosition(FName Type, double MinDistance, bool bStrict, 
 			Out.Y = Rng.Range(Tune.AirLiftA, Tune.AirLiftB);
 		}
 	}
-	else if (World->IsWalkable(Out.X + Jx, Out.Z + Jz))
+	else if (World->IsWalkable(Out.X + Jx, Out.Z + Jz, bLayers ? World->LayerForY(Out.Y) : 0))
 	{
 		const double Y = World->GroundHeight(Out.X + Jx, Out.Z + Jz, Out.Y + 0.6);
 		if (FMath::Abs(Y - Out.Y) < 0.3)
@@ -478,6 +508,19 @@ bool FMIGameRules::QueueWave(const TArray<FName>& Order, double FirstDelay, doub
 	WaveAge = 0;
 	OutFrom = Text.Get(FString::Printf(TEXT("compass.%d"), MIFlow::CompassSector(Sx, Sz)));
 	return true;
+}
+
+/** A Goon returned to the pool as stranded (nav step A) gives his wave slot back: one new Goon is queued near the player. */
+void FMIGameRules::RequeueRecycled()
+{
+	for (int32 N = Enemies->TakeRecycled(); N > 0; --N)
+	{
+		FVector Pos;
+		if (ChoosePosition(NGoon, Tune.Far, false, Pos))
+		{
+			Queue.Add({NGoon, Clock + Tune.PoolRetry, Pos, 0});
+		}
+	}
 }
 
 void FMIGameRules::PumpQueue()
@@ -924,6 +967,7 @@ bool FMIGameRules::Update(double Dt, const FMIFlowPlayer& InPlayer, bool bIntera
 		Run.Time += Dt;
 	}
 	SyncStats();
+	RequeueRecycled();
 	PumpQueue();
 	if (Mode == NMission)
 	{

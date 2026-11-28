@@ -542,6 +542,7 @@ void FMIEnemyField::Update(double Dt, const FMIEnemyPlayer& InPlayer)
 	BudgetPaths = Tune.Ai.PathsPerFrame;
 	BudgetPicks = Tune.Ai.PicksPerFrame;
 	Alive = AliveCount();
+	PlayerLayer = World->HasLayers() ? World->LayerAt(Player.Pos) : 0;
 
 	for (int32 I = List.Num() - 1; I >= 0; --I)
 	{
@@ -590,6 +591,16 @@ void FMIEnemyField::Update(double Dt, const FMIEnemyPlayer& InPlayer)
 			}
 			Retire(E);
 			Burst(E);
+		}
+	}
+	for (int32 I = List.Num() - 1; I >= 0; --I)
+	{
+		FMIEnemy& E = Slots[List[I]];
+		if (E.bStranded && E.bAlive)
+		{
+			E.bStranded = false;
+			Retire(E);
+			++RecycledCount;
 		}
 	}
 	SpendBudgets();
@@ -740,10 +751,13 @@ void FMIEnemyField::GoonSpawn(FMIEnemy& E, const FVector& At, const FMIEnemySpaw
 {
 	const FMIGoonTune& T = Tune.Goon;
 	E.Pos = At;
-	if (!World->IsWalkable(At.X, At.Z))
+	E.Layer = World->HasLayers() ? World->LayerForY(At.Y) : 0;
+	E.StrandT = E.StrandCheckIn = 0;
+	E.bStranded = false;
+	if (!World->IsWalkable(At.X, At.Z, E.Layer))
 	{
 		FVector Near;
-		if (World->NearestWalkable(At.X, At.Z, 4.0, Near))
+		if (World->NearestWalkable(At.X, At.Z, 4.0, Near, E.Layer))
 		{
 			E.Pos = FVector(Near.X, At.Y, Near.Z);
 		}
@@ -813,7 +827,7 @@ void FMIEnemyField::ClearGoal(FMIEnemy& E)
 
 void FMIEnemyField::Plan(FMIEnemy& E)
 {
-	const bool bFound = World->FindPath(E.Pos, FVector(E.GoalX, 0, E.GoalZ), E.Path);
+	const bool bFound = World->FindPath(E.Pos, FVector(E.GoalX, 0, E.GoalZ), E.Path, E.Layer);
 	E.bNeedPath = false;
 	E.ReplanIn = Range(Tune.Goon.Replan);
 	if (!bFound || E.Path.Num() < 2)
@@ -964,7 +978,7 @@ bool FMIEnemyField::Locomote(FMIEnemy& E, double Dt)
 		if (E.ReplanIn <= 0)
 		{
 			E.ReplanIn = Range(T.Replan);
-			if (!E.bHasPath || !World->ClearLine(E.Pos, E.Path[FMath::Min(E.PathIndex, E.Path.Num() - 1)]))
+			if (!E.bHasPath || !World->ClearLine(E.Pos, E.Path[FMath::Min(E.PathIndex, E.Path.Num() - 1)], E.Layer))
 			{
 				E.bNeedPath = true;
 			}
@@ -995,11 +1009,15 @@ int32 FMIEnemyField::AddCandidate(int32 N, double X, double Z, ECandidate Kind, 
 	{
 		return N;
 	}
-	if (!InFireBand(Hypot(X - TargetPos.X, Z - TargetPos.Z), T) || !World->IsWalkable(X, Z))
+	if (!InFireBand(Hypot(X - TargetPos.X, Z - TargetPos.Z), T) || !World->IsWalkable(X, Z, E.Layer))
 	{
 		return N;
 	}
 	if (E.bPickAway && Hypot(X - E.Pos.X, Z - E.Pos.Z) < T.RepickMinMove)
+	{
+		return N;
+	}
+	if (World->HasLayers() && !World->SameRegion(E.Layer, E.Pos, FVector(X, E.Pos.Y, Z)))
 	{
 		return N;
 	}
@@ -1014,6 +1032,50 @@ int32 FMIEnemyField::AddCandidate(int32 N, double X, double Z, ECandidate Kind, 
 	C.bCover = bCover;
 	C.bSight = World->LineOfSight(FVector(X, E.Pos.Y + T.GunHeight, Z), TargetEye);
 	return N + 1;
+}
+
+int32 FMIEnemyField::AddFiringCells(int32 N, const FMIEnemy& E, const FVector& TargetPos, const FVector& TargetEye, int32 TargetLayer)
+{
+	const FMIGoonTune& T = Tune.Goon;
+	if (!World->HasLayers() || TargetLayer == E.Layer)
+	{
+		return N;
+	}
+	// The own-layer cell nearest to the target (the parapet above a street, the gantry letterbox above a plaza), then
+	// the cells around it: the ones that can reach the target with a shot and that this Goon can walk to.
+	const double Range = World->GetNavSpec().FiringCellRange;
+	FVector Seed;
+	if (!World->NearestWalkable(TargetPos.X, TargetPos.Z, Range, Seed, E.Layer))
+	{
+		return N;
+	}
+	for (int32 I = 0; I < 18 && N < MaxCandidates; ++I)
+	{
+		FVector P = Seed;
+		if (I > 0 && !World->RandomPoint(Seed, 9.0, P, E.Layer))
+		{
+			continue;
+		}
+		if (Hypot(P.X - E.Pos.X, P.Z - E.Pos.Z) > Range + 12.0 || Hypot(P.X - TargetPos.X, P.Z - TargetPos.Z) > T.ShotRange)
+		{
+			continue;
+		}
+		if (E.bPickAway && Hypot(P.X - E.Pos.X, P.Z - E.Pos.Z) < T.RepickMinMove)
+		{
+			continue;
+		}
+		if (!World->LineOfSight(FVector(P.X, E.Pos.Y + T.GunHeight, P.Z), TargetEye) || !World->SameRegion(E.Layer, E.Pos, FVector(P.X, E.Pos.Y, P.Z)))
+		{
+			continue;
+		}
+		FCandidate& C = Candidates[N++];
+		C.X = P.X;
+		C.Z = P.Z;
+		C.Kind = ECandidate::Random;
+		C.bCover = false;
+		C.bSight = true;
+	}
+	return N;
 }
 
 bool FMIEnemyField::PickFirePosition(FMIEnemy& E)
@@ -1044,6 +1106,7 @@ bool FMIEnemyField::PickFirePosition(FMIEnemy& E)
 		const double R = Range(T.RepickArcRange);
 		N = AddCandidate(N, Player.Pos.X + FMath::Sin(Angle) * R, Player.Pos.Z + FMath::Cos(Angle) * R, ECandidate::Arc, false, E, Player.Pos, Player.Eye, false);
 	}
+	N = AddFiringCells(N, E, Player.Pos, Player.Eye, PlayerLayer);
 	E.bWantPick = false;
 	E.bPickAway = false;
 	E.PickX = Player.Pos.X;
@@ -1107,6 +1170,10 @@ void FMIEnemyField::PickStand(FMIEnemy& E)
 		const double Angle = Side + T.RepickArc * ((static_cast<double>(I) / (T.RepickArcPoints - 1)) * 2.0 - 1.0) + (Random() - 0.5) * 0.3;
 		const double R = Range(T.RepickArcRange);
 		N = AddCandidate(N, Lk.X + FMath::Sin(Angle) * R, Lk.Z + FMath::Cos(Angle) * R, ECandidate::Arc, false, E, Lk, Eye, true);
+	}
+	if (World->HasLayers())
+	{
+		N = AddFiringCells(N, E, Lk, Eye, World->LayerForY(Lk.Y));
 	}
 	E.bHasStand = N > 0;
 	if (!E.bHasStand)
@@ -1250,7 +1317,7 @@ void FMIEnemyField::GoonPatrol(FMIEnemy& E, double Dt)
 	if (!E.bHasGoal)
 	{
 		FVector Point;
-		if (World->RandomPoint(E.Home, T.PatrolRadius, Point))
+		if (World->RandomPoint(E.Home, T.PatrolRadius, Point, E.Layer))
 		{
 			SetGoal(E, Point.X, Point.Z);
 		}
@@ -1276,7 +1343,7 @@ void FMIEnemyField::GoonInvestigate(FMIEnemy& E, double Dt)
 	E.LookYawRel = AngleDelta(E.Yaw, Bearing);
 	double Gx = Lk.X, Gz = Lk.Z;
 	double Stop = T.InvStopWithin;
-	const bool bElevated = Lk.Y > E.Pos.Y + T.InvElevated;
+	const bool bElevated = Lk.Y > E.Pos.Y + T.InvElevated || (World->HasLayers() && World->LayerForY(Lk.Y) != E.Layer);
 	if (bElevated)
 	{
 		if (!E.bWantStand && (!E.bHasStand || FMath::Abs(Lk.X - E.StandForX) + FMath::Abs(Lk.Y - E.StandForY) + FMath::Abs(Lk.Z - E.StandForZ) > T.InvRestand))
@@ -1592,6 +1659,10 @@ void FMIEnemyField::GoonUpdate(FMIEnemy& E, double Dt)
 	}
 
 	Locomote(E, Dt);
+	if (World->HasLayers())
+	{
+		CheckStranded(E, Dt);
+	}
 	if (E.Stuck > T.StuckTime)
 	{
 		E.Stuck = 0;
@@ -1637,6 +1708,44 @@ void FMIEnemyField::GoonUpdate(FMIEnemy& E, double Dt)
 	E.HeadYaw = MI::Damp(E.HeadYaw, FMath::Clamp(E.LookYawRel, -1.4, 1.4), 7.0, Dt);
 	E.HeadPitch = MI::Damp(E.HeadPitch, FMath::Clamp(E.LookPitch, -0.6, 0.6), 7.0, Dt);
 	E.FlinchAge += Dt;
+}
+
+/** Nav step A, the stranded rule (midtown.md 7.2). Once a second a Goon who is out of the player's view asks whether he has
+ *  a way to fight: a path to the player's own layer's cell, or a firing cell. After strandedAfter seconds without one (and
+ *  without having seen him) he is returned to the pool. He holds and fires from where he stands in the meantime. */
+void FMIEnemyField::CheckStranded(FMIEnemy& E, double Dt)
+{
+	if (!Player.bAlive)
+	{
+		E.StrandT = 0;
+		return;
+	}
+	if (E.bSees)
+	{
+		E.StrandT = 0;
+		E.StrandCheckIn = 0;
+		return;
+	}
+	E.StrandCheckIn -= Dt;
+	if (E.StrandCheckIn > 0)
+	{
+		return;
+	}
+	E.StrandCheckIn = 1.0;
+	bool bWay;
+	if (PlayerLayer == E.Layer)
+	{
+		bWay = World->SameRegion(E.Layer, E.Pos, Player.Pos);
+	}
+	else
+	{
+		bWay = AddFiringCells(0, E, Player.Pos, Player.Eye, PlayerLayer) > 0;
+	}
+	E.StrandT = bWay ? 0.0 : E.StrandT + 1.0;
+	if (E.StrandT >= World->GetNavSpec().StrandedAfter && E.SinceSeen >= World->GetNavSpec().StrandedAfter)
+	{
+		E.bStranded = true;
+	}
 }
 
 void FMIEnemyField::GoonKilled(FMIEnemy& E, const TOptional<FVector>& Dir)

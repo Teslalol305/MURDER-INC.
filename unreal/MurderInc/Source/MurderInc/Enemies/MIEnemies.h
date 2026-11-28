@@ -95,6 +95,11 @@ struct FMIEnemy
 	int32 StuckCount = 0;
 	double Travel = 0, Wait = 0;
 	bool bOnGround = true;
+	/** Nav step A: the layer this Goon is snapped to, paths on and fights from (0 on a level with one plane). */
+	int32 Layer = 0;
+	/** Seconds with no way to fight (no sight, no firing cell, no path); at the level's strandedAfter he is returned to the pool. */
+	double StrandT = 0, StrandCheckIn = 0;
+	bool bStranded = false;
 	FName Surface;
 	bool bHasFirePos = false, bWantPick = false, bPickAway = false, bAtCover = false;
 	double GoalFireX = 0, GoalFireZ = 0, PickX = 0, PickZ = 0;
@@ -222,6 +227,10 @@ public:
 	const FMIEnemyTune& GetTune() const { return Tune; }
 	double Clock() const { return Now; }
 
+	/** Goons returned to the pool since the last call as stranded (nav step A, midtown.md 7.2): no kill, no score, no event.
+	 *  The flow queues one new Goon for each, so the wave loses nobody. */
+	int32 TakeRecycled() { const int32 N = RecycledCount; RecycledCount = 0; return N; }
+
 	/** Events since the last call (the host forwards them to the event bus). */
 	TArray<FMIEnemyEvent>& Events() { return PendingEvents; }
 
@@ -260,6 +269,9 @@ private:
 	bool Locomote(FMIEnemy& E, double Dt);
 	int32 CollectOthers(const FMIEnemy& E);
 	int32 AddCandidate(int32 N, double X, double Z, MIEnemy::ECandidate Kind, bool bCover, const FMIEnemy& E, const FVector& TargetPos, const FVector& TargetEye, bool bStand);
+	/** Nav step A firing cells: when the target is on another layer, cells of E's own layer near the target with sight of it. */
+	int32 AddFiringCells(int32 N, const FMIEnemy& E, const FVector& TargetPos, const FVector& TargetEye, int32 TargetLayer);
+	void CheckStranded(FMIEnemy& E, double Dt);
 	bool PickFirePosition(FMIEnemy& E);
 	void PickStand(FMIEnemy& E);
 	void Pick(FMIEnemy& E);
@@ -322,6 +334,8 @@ private:
 	double SinceGunfire = MIEnemy::Inf;
 	double LastGunfireRadius = 0.0;
 	int32 BudgetPaths = 0, BudgetPicks = 0;
+	int32 PlayerLayer = 0;
+	int32 RecycledCount = 0;
 	int32 PathCursor = 0, PickCursor = 0, StandCursor = 0;
 	TArray<MIEnemy::FCandidate> Candidates;
 	TArray<MIEnemy::FOther> Others;
