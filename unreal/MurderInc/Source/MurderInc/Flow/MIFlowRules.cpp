@@ -158,6 +158,10 @@ namespace
 		{
 			TArray<FString> Parts;
 			Path.ParseIntoArray(Parts, TEXT("."));
+			if (!Root.IsValid())
+			{
+				return nullptr;  // a deck not loaded yet (the HUD draws a frame before a travelled world has booted)
+			}
 			TSharedPtr<FJsonValue> V = MakeShared<FJsonValueObject>(Root);
 			for (const FString& P : Parts)
 			{

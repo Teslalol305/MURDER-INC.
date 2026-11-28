@@ -350,7 +350,8 @@ bool UMIGameSubsystem::Boot(const FMIBootOptions& Options)
 			}
 		}
 	}
-	if (Options.bTitle)
+	// A travelled level keeps the front end too: its debrief card reads the front end's texts (Next, Change set-up).
+	if (Options.bTitle || Options.bTravelled)
 	{
 		FrontEnd = NewObject<UMIFrontEnd>(this);
 		if (!FrontEnd->Init(this))
