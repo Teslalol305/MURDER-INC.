@@ -81,6 +81,77 @@ def paint_name(slot, colour):
     return "%s_%s" % (B.slot_instance_name(slot), "".join("%02X" % int(round(max(0.0, min(1.0, c)) * 255)) for c in colour))
 
 
+# ------------------------------------------------------------------------------------------------ sign faces
+
+SIGN_MASTER = B.MAT_DIR + "/M_CT_Sign"
+SIGN_NITS = 450.0        # night: lit faces about 450 nits (the lightbox range of chinatown.md 11.3 is 100 to 300 at 1x; bloom helps)
+SIGN_HLSL = "return UV * Cell.xy + Cell.zw;"
+
+
+def sign_cells(pl):
+    cells = sorted({(e["atlas"], tuple(e["atlas_uv"])) for e in pl["instances"] if e.get("atlas_uv")})
+    return {c: "MI_CTSign_%03d" % k for k, c in enumerate(cells)}
+
+
+def build_sign_master(force):
+    if ASSETS.does_asset_exist(SIGN_MASTER) and not force:
+        return "exists"
+    if ASSETS.does_asset_exist(SIGN_MASTER):
+        material = unreal.load_asset(SIGN_MASTER)
+        B.LIB.delete_all_material_expressions(material)
+    else:
+        material = unreal.AssetToolsHelpers.get_asset_tools().create_asset("M_CT_Sign", B.MAT_DIR, unreal.Material,
+                                                                             unreal.MaterialFactoryNew())
+    LIB = B.LIB
+    tc = B.expr(material, unreal.MaterialExpressionTextureCoordinate, -1200, 0)
+    cell = B.expr(material, unreal.MaterialExpressionVectorParameter, -1200, 160, parameter_name="Cell",
+                  default_value=unreal.LinearColor(1, 1, 0, 0))
+    uv = B.custom(material, -900, 60, SIGN_HLSL, ["UV", "Cell"], unreal.CustomMaterialOutputType.CMOT_FLOAT2)
+    LIB.connect_material_expressions(tc, "", uv, "UV")
+    LIB.connect_material_expressions(cell, "", uv, "Cell")
+
+    def sample(name, y, masks=False):
+        node = B.expr(material, unreal.MaterialExpressionTextureSampleParameter2D, -600, y, parameter_name=name)
+        if masks:
+            node.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)
+        node.set_editor_property("texture", unreal.load_asset(B.BLACK_TEXTURE))
+        LIB.connect_material_expressions(uv, "", node, "UVs")
+        return node
+    bc, e, orm = sample("BC", -200), sample("E", 100), sample("ORM", 400, True)
+    nits = B.expr(material, unreal.MaterialExpressionScalarParameter, -600, 600, parameter_name="EmissiveScale", default_value=SIGN_NITS)
+    glow = B.expr(material, unreal.MaterialExpressionMultiply, -300, 100)
+    LIB.connect_material_expressions(e, "RGB", glow, "A")
+    LIB.connect_material_expressions(nits, "", glow, "B")
+    LIB.connect_material_property(bc, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
+    LIB.connect_material_property(orm, "G", unreal.MaterialProperty.MP_ROUGHNESS)
+    LIB.connect_material_property(orm, "B", unreal.MaterialProperty.MP_METALLIC)
+    LIB.connect_material_property(orm, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)
+    LIB.connect_material_property(glow, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    LIB.recompile_material(material)
+    ASSETS.save_asset(SIGN_MASTER, only_if_is_dirty=False)
+    return "created"
+
+
+def make_sign_instance(name, atlas, uv, force):
+    instance = B.instance_of(name, SIGN_MASTER, force)
+    if instance is None:
+        return "exists"
+    u0, v0, u1, v1 = uv
+    B.LIB.set_material_instance_vector_parameter_value(instance, "Cell", unreal.LinearColor(u1 - u0, v1 - v0, u0, 1.0 - v1))
+    for kind in ("BC", "E", "ORM"):
+        path = B.texture_path(atlas, kind)
+        if ASSETS.does_asset_exist(path):
+            B.LIB.set_material_instance_texture_parameter_value(instance, kind, unreal.load_asset(path))
+    return B.finish_instance(instance, name)
+
+
+def sign_units(force):
+    pl = placements()
+    yield "sign master", lambda: build_sign_master(force)
+    for (atlas, uv), name in sign_cells(pl).items():
+        yield "sign " + name, (lambda n=name, a=atlas, u=uv: make_sign_instance(n, a, u, force))
+
+
 # ------------------------------------------------------------------------------------------------ the level
 
 def open_map():
@@ -151,6 +222,7 @@ def mass_units(lv):
 
 
 def art_units(pl):
+    cells = sign_cells(pl)
     by_building = {}
     for e in pl["instances"]:
         by_building.setdefault(e["building"], []).append(e)
@@ -162,11 +234,12 @@ def art_units(pl):
                 if not ASSETS.does_asset_exist(path):
                     missing.add(e["mesh"])
                     continue
-                key = (e["mesh"], tuple(e["paint"]) if e.get("paint") else None)
+                cell = cells.get((e["atlas"], tuple(e["atlas_uv"]))) if e.get("atlas_uv") else None
+                key = (e["mesh"], tuple(e["paint"]) if e.get("paint") else None, cell)
                 groups.setdefault(key, []).append(B.transform(e["location_cm"], e["yaw"], tuple(e.get("scale", (1, 1, 1)))))
             holder = B.instance_holder("Art_" + bd, FOLDER + "/Art")
             count = 0
-            for (mesh, paint), transforms in sorted(groups.items(), key=lambda kv: (kv[0][0], kv[0][1] or ())):
+            for (mesh, paint, cell), transforms in sorted(groups.items(), key=lambda kv: (kv[0][0], kv[0][1] or (), kv[0][2] or "")):
                 comp = B.add_instances(holder, "%s/%s" % (B.MESH_DIR, mesh), transforms, None, collide=False)
                 if paint:
                     man_asset = B.manifest()["assets"].get(mesh, {})
@@ -175,6 +248,8 @@ def art_units(pl):
                             m = mat(paint_name(slot["slot"], paint))
                             if m:
                                 comp.set_material_by_name(slot["slot"], m)
+                if cell and mat(cell):
+                    comp.set_material_by_name("M_Sign_CT_Face", mat(cell))
                 count += len(transforms)
             return "%d instances, %d meshes%s" % (count, len(groups), ("; missing " + ",".join(sorted(missing))) if missing else "")
         yield "art " + building, place
@@ -246,7 +321,7 @@ def lights_unit(lv, pl):
             if abs(y) < 1500 and False:
                 toward = 0
             sh = any(abs(x - sx) < 400 for sx in shadowed_x) and abs(y) > 1500 or (abs(x - 1300) < 700 and k % 3 == 0)
-            light("spot", "Lamp_%d" % k, (x, y + toward * 220, 760), DOWN, kelvin(4000), 9000.0, 1500.0,
+            light("spot", "Lamp_%d" % k, (x, y + toward * 220, 760), DOWN, kelvin(4000), 3500.0, 1500.0,
                   shadow=sh and LIGHT_COUNT["shadowed"] < 6, cone=70.0)
         # Sign wash: the largest lit night-on signs, a point light a metre out of the face in the sign's colour.
         signs = [s for s in lv["signage"]["placements"] if s.get("lit") and s.get("night") == "on" and s.get("colour")
@@ -261,8 +336,8 @@ def lights_unit(lv, pl):
             n = s["web"].get("normal", {"x": 0, "y": 0, "z": 1})
             nx, ny = n["x"], n["z"]
             light("point", "Sign_" + s["id"].replace(".", "_"), (p["X"] + nx * 130, p["Y"] + ny * 130, p["Z"]), (0, 0, 0),
-                  hexcolour(s["colour"]), 1400.0, 650.0, draw=3000.0, fade=600.0)
-            if len(used) >= 16:
+                  hexcolour(s["colour"]), 900.0, 650.0, draw=3000.0, fade=600.0)
+            if len(used) >= 13:
                 break
         # Interiors and the rest, by place.
         white = kelvin(5000)
@@ -301,7 +376,7 @@ def rig_unit(lv):
         sun = B.spawn_class(unreal.DirectionalLight, "CityGlow", FOLDER + "/Light", (0, 0, 3000), (-55, -140, 0))
         c = sun.get_component_by_class(unreal.DirectionalLightComponent)
         c.set_mobility(unreal.ComponentMobility.MOVABLE)
-        B.setp(c, "intensity", 0.6)
+        B.setp(c, "intensity", 0.15)
         B.setp(c, "light_color", unreal.Color(142, 166, 214, 255))
         B.setp(c, "cast_shadows", False)
         B.setp(c, "atmosphere_sun_light", False)
@@ -309,7 +384,7 @@ def rig_unit(lv):
         s = sky.get_component_by_class(unreal.SkyLightComponent)
         s.set_mobility(unreal.ComponentMobility.MOVABLE)
         B.setp(s, "real_time_capture", False)
-        B.setp(s, "intensity", 0.5)
+        B.setp(s, "intensity", 0.2)
         B.setp(s, "lower_hemisphere_is_black", False)
         B.setp(s, "lower_hemisphere_color", unreal.LinearColor(0.02, 0.016, 0.014, 1.0))
         B.setp(s, "light_color", unreal.Color(120, 130, 170, 255))
@@ -368,6 +443,7 @@ def start(steps="all", force=False):
     B.STEPS = dict(B.STEPS)
     B.STEPS["meshes"] = mesh_units
     B.STEPS["paints"] = paint_units
+    B.STEPS["signs"] = sign_units
     B.STEPS["canal"] = level_units
-    names = "textures,materials,meshes,paints,canal" if steps == "all" else steps
+    names = "textures,materials,meshes,paints,signs,canal" if steps == "all" else steps
     return B.start(names, force=force)
