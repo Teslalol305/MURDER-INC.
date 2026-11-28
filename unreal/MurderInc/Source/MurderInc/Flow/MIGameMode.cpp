@@ -26,7 +26,7 @@ FName AMIGameMode::LevelOfMap(const FString& Map)
 	{
 		return NAME_None;
 	}
-	for (const TPair<FString, TSharedPtr<FJsonValue>>& L : (*Levels)->Values)
+	for (const auto& L : (*Levels)->Values)
 	{
 		const TSharedPtr<FJsonObject> E = L.Value->AsObject();
 		FString A, B;

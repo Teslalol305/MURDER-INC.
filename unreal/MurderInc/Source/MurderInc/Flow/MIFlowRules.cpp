@@ -343,7 +343,7 @@ namespace
 {
 	void MergeText(const TSharedPtr<FJsonObject>& Into, const TSharedPtr<FJsonObject>& From)
 	{
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& P : From->Values)
+		for (const auto& P : From->Values)
 		{
 			const TSharedPtr<FJsonObject>* Dst = nullptr;
 			if (P.Value->Type == EJson::Object && Into->TryGetObjectField(P.Key, Dst))
