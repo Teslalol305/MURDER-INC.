@@ -587,6 +587,11 @@ the Development game of the package, `-sm5`, 1920 x 1080, the Python viewer that
   - Midtown (art map, night): the roof start with the water tower, the lit skyline and the screens; a Goon on the roof
     fires at the player (muzzle flash, health falling), guide marker, scaffold and plank walls when the player walks;
     the debrief "THE CITY IS YOURS" with no Next.
+- **e3ds-verify.sh** on the unzipped package (`/project/ue/maps/unz`): v-long (7 min, fresh user, viewer joining and
+  leaving), v-sm5, v-root, v-nort, v-vram6000 and v-e3ds-7600 ran to their limit and ended with exit 0 after TERM or
+  INT; v-crash and v-crash-dev crashed on purpose with a report; v-dev-quit exited 0. v-vram5000 died with a Vulkan
+  out-of-memory in the full run because another lane's game was on the same card; run again alone (card free 4,998 MiB)
+  it was alive at its limit and ended with exit 0.
 - **Not proven.** Goons close up in a fight on the streets of Canal (the pictures show them far or flashing); aim assist
   (not driven: the viewer's mouse moves were not aimed at a Goon); reel pickup by the director (`grab` timed out on
   Canal and Midtown with the player 1.4 m from the case; the director walks in straight lines and gets stuck on
