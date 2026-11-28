@@ -1223,7 +1223,9 @@ void FMIEnemyField::Pick(FMIEnemy& E)
 	if (!PickFirePosition(E))
 	{
 		const double D = Hypot(Player.Pos.X - E.Pos.X, Player.Pos.Z - E.Pos.Z);
-		if (D <= T.RangeMax)
+		// Nav step A: with the player on another layer there is no walking toward his (x, z) (a roof Goon would walk off the
+		// parapet, a street Goon under a building): he holds where he stands and fires when he sees him (midtown.md 7.2).
+		if (D <= T.RangeMax || (World->HasLayers() && PlayerLayer != E.Layer))
 		{
 			E.bHasFirePos = false;
 			if (E.Sub == EMIGoonSub::Move)

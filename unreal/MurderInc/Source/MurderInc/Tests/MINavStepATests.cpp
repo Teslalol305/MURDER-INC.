@@ -380,6 +380,7 @@ bool FMINavMidtownTest::RunTest(const FString& Parameters)
 			After ? After->bHasFirePos : 0, After ? After->GoalFireX : 0.0, After ? After->GoalFireZ : 0.0, After ? After->bSees : 0, After ? After->PathFails : 0));
 		TestTrue(FString::Printf(TEXT("%s Goon stayed on his layer's floor"), Pair.Goon), F.Drift.FindRef(Id) < 0.6);
 		TestTrue(FString::Printf(TEXT("%s Goon fires at the player on %s (a firing cell)"), Pair.Goon, Pair.Target), F.RoundsBy(Id) > 0);
+		TestTrue(FString::Printf(TEXT("%s Goon keeps firing (not frozen after his first burst): %d rounds in 45 s"), Pair.Goon, F.RoundsBy(Id)), F.RoundsBy(Id) >= 30);
 		TestEqual(FString::Printf(TEXT("%s Goon was not stranded"), Pair.Goon), F.Recycled, 0);
 	}
 
