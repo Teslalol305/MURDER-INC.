@@ -28,6 +28,18 @@ B.TAG = "MICanal"
 MAP = "/Game/Maps/L_Chinatown"
 FOLDER = "Canal"
 ACTORS, ASSETS, LEVELS = B.ACTORS, B.ASSETS, B.LEVELS
+_FLAT_VALUES = B.flat_values
+
+
+def flat_values(slot):
+    """Canal slots give `emissive` as a linear colour list as well as a hex string."""
+    e = slot.get("emissive")
+    if isinstance(e, list):
+        return (tuple(e), 0.15, 0.0, B.NEON_DAY_NITS)
+    return _FLAT_VALUES(slot)
+
+
+B.flat_values = flat_values
 SKIP_MESH = ("_LOD", "_Far_")            # Nanite does the levels of detail; the far proxies are for non-Nanite cards
 
 
