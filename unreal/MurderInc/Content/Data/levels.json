@@ -6,20 +6,36 @@
     "schema": 1
   },
   "default": "block",
-  "order": ["block"],
+  "order": [
+    "block",
+    "chinatown",
+    "midtown"
+  ],
   "levels": {
     "block": {
       "id": "block",
       "text": "frontend.levels.block",
       "map": "/Game/Maps/L_Block",
-      "data": {"level": "level.json", "props": "props.json", "atmos": "atmos.json"},
-      "place": {"day": "text.location.byTime.day", "night": "text.location.byTime.night"},
-      "times": ["day"],
+      "data": {
+        "level": "level.json",
+        "props": "props.json",
+        "atmos": "atmos.json"
+      },
+      "place": {
+        "day": "text.location.byTime.day",
+        "night": "text.location.byTime.night"
+      },
+      "times": [
+        "day"
+      ],
       "provides": {
         "playerStart": true,
         "objectives": 3,
         "extraction": true,
-        "enemySpawns": {"ground": 29, "air": 17},
+        "enemySpawns": {
+          "ground": 29,
+          "air": 17
+        },
         "nav": true,
         "coverPoints": true,
         "explosives": true,
@@ -34,7 +50,94 @@
           "notes": "a 16:9 frame from the title fly-through (key 3, the avenue under the El), for a level that is not loaded"
         }
       },
-      "notes": "`provides` is checked against level.json at load (MurderInc.Loadout.DataLoads): 3 objectives, an extraction zone, 29 ground and 17 air spawn points, a nav grid, cover points, 21 explosives, 14 title-camera keys. showroom null: the front end uses frontend.json stage (a point inside the level may be set later, see LOADOUT.md 2.10)."
+      "notes": "`provides` is checked against level.json at load (MurderInc.Loadout.DataLoads): 3 objectives, an extraction zone, 29 ground and 17 air spawn points, a nav grid, cover points, 21 explosives, 14 title-camera keys. showroom null: the front end uses frontend.json stage (a point inside the level may be set later, see LOADOUT.md 2.10).",
+      "number": 1,
+      "par": 5.0,
+      "greyMap": "/Game/Maps/L_GreyBlock"
+    },
+    "chinatown": {
+      "id": "chinatown",
+      "text": "frontend.levels.chinatown",
+      "map": "/Game/Maps/L_Chinatown",
+      "greyMap": "/Game/Maps/L_GreyBlock",
+      "data": {
+        "level": "level_chinatown.json",
+        "audio": "audio_chinatown.json",
+        "text": "text_chinatown.json"
+      },
+      "place": {
+        "night": "frontend.levels.chinatown.placeShort"
+      },
+      "number": 2,
+      "par": 5.0,
+      "story": "frontend.story.chinatown",
+      "times": [
+        "night"
+      ],
+      "provides": {
+        "playerStart": true,
+        "objectives": 3,
+        "extraction": true,
+        "enemySpawns": {
+          "ground": 38,
+          "air": 0
+        },
+        "nav": true,
+        "coverPoints": true,
+        "explosives": true,
+        "titlePath": true,
+        "showroom": null
+      },
+      "preview": {
+        "camera": "titlePath",
+        "thumbnail": {
+          "asset": "T_UI_Level_Chinatown",
+          "status": "missing"
+        }
+      },
+      "notes": "Map level (docs/unreal/maps). provides is checked against level_chinatown.json (Levels.*.Loads). No drones: no air spawns."
+    },
+    "midtown": {
+      "id": "midtown",
+      "text": "frontend.levels.midtown",
+      "map": "/Game/Maps/L_Midtown",
+      "greyMap": "/Game/Maps/L_GreyBlock",
+      "data": {
+        "level": "level_midtown.json",
+        "audio": "audio_midtown.json",
+        "text": "text_midtown.json"
+      },
+      "place": {
+        "night": "frontend.levels.midtown.placeShort"
+      },
+      "number": 3,
+      "par": 6.5,
+      "story": "frontend.story.midtown",
+      "times": [
+        "night"
+      ],
+      "provides": {
+        "playerStart": true,
+        "objectives": 3,
+        "extraction": true,
+        "enemySpawns": {
+          "ground": 30,
+          "air": 0
+        },
+        "nav": true,
+        "coverPoints": true,
+        "explosives": true,
+        "titlePath": true,
+        "showroom": null
+      },
+      "preview": {
+        "camera": "titlePath",
+        "thumbnail": {
+          "asset": "T_UI_Level_Midtown",
+          "status": "missing"
+        }
+      },
+      "notes": "Map level (docs/unreal/maps). provides is checked against level_midtown.json (Levels.*.Loads). No drones: no air spawns."
     }
   },
   "modes": {
@@ -47,10 +150,16 @@
         "playerStart": true,
         "objectives": 1,
         "extraction": true,
-        "enemySpawns": {"ground": 1, "air": 0},
+        "enemySpawns": {
+          "ground": 1,
+          "air": 0
+        },
         "nav": true
       },
-      "options": {"difficulty": true, "time": true},
+      "options": {
+        "difficulty": true,
+        "time": true
+      },
       "score": "rating",
       "notes": "Story: every objective of the level is a master reel (the block has three); the truck at the extraction zone ends the run. Rules: spec 04 3.6 to 3.10, unchanged."
     },
@@ -63,18 +172,38 @@
         "playerStart": true,
         "objectives": 0,
         "extraction": false,
-        "enemySpawns": {"ground": 1, "air": 1},
+        "enemySpawns": {
+          "ground": 1,
+          "air": 0
+        },
         "nav": true
       },
-      "options": {"difficulty": true, "time": true},
+      "options": {
+        "difficulty": true,
+        "time": true
+      },
       "score": "best",
       "notes": "Hold the Block: endless waves of Goons and Buzzards (both kinds, so both spawn kinds are needed); objectives, if any, stand closed; explosives, if any, come back every second wave. Rules: spec 04 3.11, unchanged; the resupply goes into the shared bag of rounds (LOADOUT.md 3.2.3)."
     }
   },
   "difficulties": {
-    "order": ["hustler", "boss", "kingpin"],
+    "order": [
+      "hustler",
+      "boss",
+      "kingpin"
+    ],
     "text": "text.difficulties",
     "note": "frontend.mode.difficultyNotes",
     "source": "config.json flow.difficulties and flow.difficulty: unchanged"
+  },
+  "campaign": {
+    "id": "masters",
+    "order": [
+      "block",
+      "chinatown",
+      "midtown"
+    ],
+    "unlock": "previous",
+    "notes": "Level i opens when level i-1's Story is cleared (any difficulty). Hold opens with the level. docs/unreal/maps/progression.md 2.1"
   }
 }

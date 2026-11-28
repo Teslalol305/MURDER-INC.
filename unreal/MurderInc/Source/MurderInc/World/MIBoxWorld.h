@@ -84,6 +84,8 @@ public:
 	int32 AddBox(const FMIBox& Box);
 	/** Removes every box of an explosive item (when it is gone). */
 	void RemoveOwner(int32 Owner);
+	/** Removes the boxes with these level collider ids (the truck that rolls in after the last reel, E10). */
+	void RemoveIds(const TArray<int32>& Ids);
 
 	const TArray<FMIBox>& GetBoxes() const { return Boxes; }
 	const FMIBounds& GetBounds() const { return Bounds; }

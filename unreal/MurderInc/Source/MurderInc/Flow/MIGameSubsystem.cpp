@@ -10,6 +10,9 @@
 #include "Core/Data/MIDataSubsystem.h"
 #include "Flow/MIRunSetupSubsystem.h"
 #include "UI/MIFrontEnd.h"
+#include "UI/MILoadingCard.h"
+#include "Containers/Ticker.h"
+#include "Misc/PackageName.h"
 #include "Weapons/MILoadoutResolver.h"
 #include "Core/MIEvents.h"
 #include "Dom/JsonObject.h"
@@ -134,10 +137,12 @@ bool UMIGameSubsystem::Boot(const FMIBootOptions& Options)
 	}
 	Boots = Options;
 	FString Error;
-	Level = FMILevelData::Get();
+	LevelId = Options.Level.IsNone() ? FMILevelData::ActiveId() : Options.Level;
+	Level = FMILevelData::ForLevel(LevelId);
+	FMILevelData::SetActive(LevelId);
 	TSharedPtr<FJsonObject> Config, TextJson, RulesJson;
 	FMIEnemyLook Look;
-	if (!Level || !UMIDataSubsystem::LoadJsonFile(TEXT("config.json"), Config, Error) || !FMIFlowTune::Parse(Config, FlowTune, Error) || !FMIText::Load(Copy, Error)
+	if (!Level || !UMIDataSubsystem::LoadJsonFile(TEXT("config.json"), Config, Error) || !FMIFlowTune::Parse(Config, FlowTune, Error) || !FMIText::Load(Copy, Error, LevelId)
 		|| !UMIDataSubsystem::LoadJsonFile(TEXT("text.json"), TextJson, Error) || !FMISettings::LoadDefaults(Settings, Error) || !FMIEnemyLook::Load(Look, Error)
 		|| !UMIDataSubsystem::LoadJsonFile(TEXT("rules.json"), RulesJson, Error))
 	{
@@ -178,7 +183,20 @@ bool UMIGameSubsystem::Boot(const FMIBootOptions& Options)
 		(*TitleCam)->TryGetNumberField(TEXT("speed"), TitleSpeed);
 		(*TitleCam)->TryGetNumberField(TEXT("fadeIn"), TitleFadeIn);
 	}
-	// Times of day: only those the default level offers (levels.json levels.<default>.times). Night has no lighting
+	// Per-level tuning (data_contract.md 3): the level's adds over config.json, for this level only.
+	if (Level->Tuning.MaxAliveAdd != 0 || Level->Tuning.PursuitBudgetAdd != 0 || Level->Tuning.RatingTime.Num() > 0)
+	{
+		for (TPair<FName, FMIFlowDifficulty>& D : FlowTune.Difficulties)
+		{
+			D.Value.MaxAlive += Level->Tuning.MaxAliveAdd;
+			D.Value.PursuitBudget += Level->Tuning.PursuitBudgetAdd;
+		}
+		if (Level->Tuning.RatingTime.Num() > 0)
+		{
+			FlowTune.RatingTime = Level->Tuning.RatingTime;
+		}
+	}
+	// Times of day: only those the level offers (levels.json levels.<id>.times). Night has no lighting
 	// rig yet, so the block offers day only; a saved "night" is then refused by SetTime and the run plays by day.
 	{
 		TSharedPtr<FJsonObject> LevelsJson;
@@ -187,7 +205,8 @@ bool UMIGameSubsystem::Boot(const FMIBootOptions& Options)
 		const TSharedPtr<FJsonObject>* Lv = nullptr;
 		FString DefaultLevel;
 		if (UMIDataSubsystem::LoadJsonFile(TEXT("levels.json"), LevelsJson, LevelsError) && LevelsJson->TryGetStringField(TEXT("default"), DefaultLevel)
-			&& LevelsJson->TryGetObjectField(TEXT("levels"), Levels) && (*Levels)->TryGetObjectField(DefaultLevel, Lv))
+			&& LevelsJson->TryGetObjectField(TEXT("levels"), Levels)
+			&& ((*Levels)->TryGetObjectField(LevelId.ToString(), Lv) || (*Levels)->TryGetObjectField(DefaultLevel, Lv)))
 		{
 			const TArray<TSharedPtr<FJsonValue>>* Offered = nullptr;
 			if ((*Lv)->TryGetArrayField(TEXT("times"), Offered) && Offered->Num() > 0)
@@ -343,6 +362,14 @@ bool UMIGameSubsystem::Boot(const FMIBootOptions& Options)
 	ResetPlayer(Level->PlayerStart.Pos, Level->PlayerStart.Yaw);
 	if (!Options.bTitle)
 	{
+		if (Options.bTravelled)
+		{
+			// A level travel: the set-up the player chose (kept by the game instance) goes on the new world's player.
+			if (const UMIRunSetupSubsystem* Carried = UMIRunSetupSubsystem::Get(this); Carried && Carried->HasSetup())
+			{
+				ApplySetup(Carried->GetSetup());
+			}
+		}
 		StartRun(Settings.Mode, Options.bSkipIntro);
 	}
 	ApplyState();
@@ -534,6 +561,20 @@ void UMIGameSubsystem::PatchCards()
 	{
 		return;
 	}
+	if (Menu.Screen == EMIMenuScreen::Debrief && Boots.bCampaign && Menu.IndexOf(TEXT("next")) == INDEX_NONE)
+	{
+		// The campaign's debrief (progression.md 2.3): the progress code, and Next: <level> first when the next level is open.
+		Menu.Stats.Add({FrontEnd->GetRules().Text(TEXT("frontend.campaign.codeLabel")), ProgressCode()});
+		const FName Next = NextLevel();
+		if (!Next.IsNone())
+		{
+			FMIMenuItem Go;
+			Go.Id = TEXT("next");
+			Go.Label = FrontEnd->GetRules().GetData().Format(TEXT("frontend.campaign.next"), {{TEXT("level"), FrontEnd->GetRules().Text(FString::Printf(TEXT("frontend.levels.%s.name"), *Next.ToString()))}});
+			Menu.Items.Insert(Go, 0);
+			Menu.Selected = 0;
+		}
+	}
 	const int32 At = Menu.IndexOf(TEXT("totitle"));
 	FMIMenuItem Item;
 	Item.Id = TEXT("changesetup");
@@ -635,6 +676,11 @@ void UMIGameSubsystem::BeginWithSetup(const FMIRunSetup& Setup)
 	{
 		SaveSettings();
 	}
+	if (Boots.bCampaign && !Setup.Level.IsNone() && Setup.Level != LevelId)
+	{
+		TravelTo(Setup.Level);  // the new world applies the set-up and starts the run
+		return;
+	}
 	ApplySetup(Setup);
 	UE_LOG(LogMI, Log, TEXT("Set-up: %s"), *Setup.ToJsonString());
 	StartRun(Settings.Mode);
@@ -722,6 +768,7 @@ void UMIGameSubsystem::MenuConfirm()
 	}
 	else if (Id == TEXT("start")) StartRun(Settings.Mode);
 	else if (Id == TEXT("resume")) Resume();
+	else if (Id == TEXT("next")) TravelTo(NextLevel());
 	else if (Id == TEXT("restart")) Restart();
 	else if (Id == TEXT("retry")) Retry();
 	else if (Id == TEXT("again")) Redeploy();
@@ -1214,6 +1261,10 @@ void UMIGameSubsystem::ApplyState()
 	case EMIGameState::Complete: Want = Rules.Card().IsSet() ? EMIMenuScreen::Debrief : EMIMenuScreen::None; break;
 	default: Want = EMIMenuScreen::None; break;
 	}
+	if (Want == EMIMenuScreen::Debrief && Menu.Screen != EMIMenuScreen::Debrief)
+	{
+		RecordDebrief();
+	}
 	if (Want != Menu.Screen || (bStateApplied && S != AppliedState))
 	{
 		if (Want == EMIMenuScreen::Settings)
@@ -1302,6 +1353,25 @@ void UMIGameSubsystem::SyncView(double Dt)
 	if (Truck)
 	{
 		Truck->Sync(Rules.AllSecured(), Dt);
+		if (Level && Level->bTruckAfterAll)
+		{
+			// E10: the truck is not there, and not in the box world, until every reel is secured.
+			const bool bIn = Rules.AllSecured();
+			Truck->SetActorHiddenInGame(!bIn);
+			if (bIn && !bTruckIn)
+			{
+				for (const FMIBox& B : Level->Colliders)
+				{
+					if (Level->TruckColliders.Contains(B.Id)) Box.AddBox(B);
+				}
+				bTruckIn = true;
+			}
+			else if (!bIn && bTruckIn)
+			{
+				Box.RemoveIds(Level->TruckColliders);
+				bTruckIn = false;
+			}
+		}
 	}
 	// The title fly-through: along the level's cinematic keys at the title camera's speed, then round again.
 	if (Rules.GetState() == EMIGameState::Title && TitleCamera && Level && Level->CinematicPos.Num() >= 2)
@@ -1477,8 +1547,110 @@ void UMIGameSubsystem::Stats(int32& Kills, int32& Shots, int32& Hits, int32& Hea
 	Headshots = RunStats.Headshots;
 }
 
+int32 UMIGameSubsystem::Best() const
+{
+	if (LevelId != FName(TEXT("block")))
+	{
+		// A map level keeps its own Hold best in the campaign progress (the Block's stays in the save's Best).
+		const UMIRunSetupSubsystem* RunSetup = UMIRunSetupSubsystem::Get(this);
+		const FMILevelRecord* R = RunSetup ? RunSetup->GetProgress().Levels.Find(LevelId) : nullptr;
+		return R ? R->HoldBest : 0;
+	}
+	return Settings.GetBest();
+}
+
+// ================================================================================================= campaign
+
+FString UMIGameSubsystem::ProgressCode() const
+{
+	const UMIRunSetupSubsystem* RunSetup = UMIRunSetupSubsystem::Get(this);
+	return RunSetup ? RunSetup->GetProgress().EncodeCode() : FString();
+}
+
+FName UMIGameSubsystem::NextLevel() const
+{
+	const UMIRunSetupSubsystem* RunSetup = UMIRunSetupSubsystem::Get(this);
+	const FMILoadoutData* Data = RunSetup ? RunSetup->GetData() : nullptr;
+	return Data ? RunSetup->GetProgress().NextAfter(LevelId, Data->LevelOrder) : NAME_None;
+}
+
+void UMIGameSubsystem::RecordDebrief()
+{
+	// A Story complete is recorded once, in the game only (progression.md 2.4); a test or a replay never writes progress.
+	UMIRunSetupSubsystem* RunSetup = UMIRunSetupSubsystem::Get(this);
+	const TOptional<FMIRunCard>& Card = Rules.Card();
+	if (!Boots.bCampaign || !RunSetup || !Card.IsSet() || Card->Screen != FName(TEXT("complete")) || Card->Mode != FName(TEXT("mission")))
+	{
+		return;
+	}
+	RunSetup->EditProgress().RecordStory(LevelId, Card->Rating, Card->Difficulty);
+	SaveSettings();
+	UE_LOG(LogMI, Log, TEXT("Campaign: %s cleared (rating %d, %s), progress code %s"), *LevelId.ToString(), Card->Rating, *Card->Difficulty.ToString(), *ProgressCode());
+}
+
+void UMIGameSubsystem::TravelTo(FName Target)
+{
+	UWorld* World = GetWorld();
+	UMIRunSetupSubsystem* RunSetup = UMIRunSetupSubsystem::Get(this);
+	const FMILoadoutData* Data = RunSetup ? RunSetup->GetData() : nullptr;
+	const FMILevelEntry* Entry = Data ? Data->Levels.Find(Target) : nullptr;
+	if (!World || !Entry)
+	{
+		UE_LOG(LogMI, Error, TEXT("Travel: no level %s"), *Target.ToString());
+		return;
+	}
+	FMIRunSetup S = RunSetup->GetSetup();
+	S.Level = Target;
+	S.Mode = Settings.Mode;
+	S.Difficulty = Settings.Difficulty;
+	S.bPlayed = true;
+	RunSetup->SetSetup(S);
+	SaveSettings();
+	FString Map = Entry->Map;
+	if (!FPackageName::DoesPackageExist(Map))
+	{
+		// No art map yet: the grey map, the level's boxes drawn at run time.
+		Map = TEXT("/Game/Maps/L_GreyBlock");
+	}
+	// The card first: it is a viewport widget, so it is still on the stream while the old world goes and the new one loads.
+	FString Kicker, Title, Line;
+	{
+		TSharedPtr<FJsonObject> Story;
+		FString Err;
+		if (UMIDataSubsystem::LoadJsonFile(TEXT("story.json"), Story, Err))
+		{
+			const FString Base = FString::Printf(TEXT("levels.%s.loading."), *Target.ToString());
+			Kicker = MIJson::StringOr(Story, Base + TEXT("kicker"));
+			Title = MIJson::StringOr(Story, Base + TEXT("title"));
+			Line = MIJson::StringOr(Story, Base + TEXT("line"));
+		}
+	}
+	MILoadingCard::Show(Kicker, Title, Line);
+	const FString Url = FString::Printf(TEXT("level=%s?block=1?travelled"), *Target.ToString());
+	TWeakObjectPtr<UWorld> WeakWorld(World);
+	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([WeakWorld, Map, Url](float)
+	{
+		if (UWorld* W = WeakWorld.Get())
+		{
+			UGameplayStatics::OpenLevel(W, FName(*Map), true, Url);
+		}
+		return false;
+	}), 0.4f);
+}
+
 bool UMIGameSubsystem::SetBest(int32 Score)
 {
+	if (LevelId != FName(TEXT("block")))
+	{
+		UMIRunSetupSubsystem* RunSetup = UMIRunSetupSubsystem::Get(this);
+		if (!RunSetup || Score <= Best())
+		{
+			return false;
+		}
+		RunSetup->EditProgress().RecordHold(LevelId, Score);
+		SaveSettings();
+		return true;
+	}
 	const bool bNew = Settings.SetBest(Score);
 	if (bNew)
 	{

@@ -49,6 +49,22 @@ int32 FMIBoxWorld::AddBox(const FMIBox& In)
 	return Boxes.Add(B);
 }
 
+void FMIBoxWorld::RemoveIds(const TArray<int32>& Ids)
+{
+	for (int32 I = Boxes.Num() - 1; I >= 0; --I)
+	{
+		if (Ids.Contains(Boxes[I].Id))
+		{
+			if (BlocksNav(Boxes[I]))
+			{
+				bNavDirty = true;
+			}
+			Boxes.RemoveAt(I);
+			++Revision;
+		}
+	}
+}
+
 void FMIBoxWorld::RemoveOwner(int32 Owner)
 {
 	const int32 Before = Boxes.Num();

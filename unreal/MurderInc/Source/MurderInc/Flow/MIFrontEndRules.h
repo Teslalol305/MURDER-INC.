@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Core/Data/MILoadoutData.h"
+#include "Flow/MIProgress.h"
 #include "Weapons/MILoadoutResolver.h"
 
 /**
@@ -135,7 +136,15 @@ public:
 	// ---- Block & Style ----------------------------------------------------------------------------------
 	TArray<FName> Levels() const { return Data->LevelOrder; }
 	TArray<FName> Modes() const { return Ready.ModesOf(Setup.Level); }
+	/** A locked level cannot be chosen: SetLevel does nothing for it. */
 	void SetLevel(FName Level);
+	/** The campaign progress the level cards read (null: every level is open, as in the tests). The host owns it. */
+	void SetProgress(const FMIProgress* InProgress, bool bInUnlockAll) { Progress = InProgress; bUnlockAll = bInUnlockAll; }
+	bool IsLevelOpen(FName Level) const;
+	/** The state line of a level card: "Locked · Finish The Block to open", "Not cleared yet" or "Cleared · Gold · Boss". Empty with no progress. */
+	FString LevelState(FName Level) const;
+	/** The level before this one in the order (for the lock hint), or None. */
+	FName LevelBefore(FName Level) const;
 	void SetMode(FName Mode);
 	void SetDifficulty(FName Difficulty) { Setup.Difficulty = Difficulty; }
 	void SetTime(FName Time) { Setup.Time = Time; }
@@ -160,6 +169,8 @@ private:
 	FMIGunBuild& BuildOf(FName Gun);
 
 	const FMILoadoutData* Data = nullptr;
+	const FMIProgress* Progress = nullptr;
+	bool bUnlockAll = false;
 	FMIReadiness Ready;
 	const FMILoadoutResolver* Resolver = nullptr;
 	FMIRunSetup Setup;

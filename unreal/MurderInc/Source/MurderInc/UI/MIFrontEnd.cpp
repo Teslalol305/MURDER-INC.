@@ -75,6 +75,10 @@ bool UMIFrontEnd::Init(UMIGameSubsystem* InGame)
 		Ready.AssetExists = FMIReadiness::PackageExists();
 	}
 	Rules.Init(Data, Ready, Resolver.Get(), Saved);
+	if (Setup)
+	{
+		Rules.SetProgress(&Setup->GetProgress(), Setup->UnlockAll());
+	}
 	ViewData = MakeUnique<FMIViewmodelData>();
 	FMIViewmodelData::Load(*ViewData, Error);
 

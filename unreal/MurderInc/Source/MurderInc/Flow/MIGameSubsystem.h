@@ -49,6 +49,11 @@ struct FMIBootOptions
 	bool bTitle = true;
 	FName Mode;           // None: the setting
 	FName Difficulty;     // None: the setting
+	FName Level;          // None: FMILevelData::Current() (the Block unless the game mode chose another)
+	/** Arrived by level travel: the saved set-up is applied and the run starts at once (no title). */
+	bool bTravelled = false;
+	/** The campaign is live (the game, not a test or a replay): clears are recorded and the debrief offers the next level. */
+	bool bCampaign = false;
 	bool bSkipIntro = false;
 	/** Read and write the save-game slot (off in tests). */
 	bool bPersist = true;
@@ -106,6 +111,12 @@ public:
 	void Redeploy();
 	void ToTitle();
 	void SetDifficulty(FName Difficulty);
+	/** Level travel (hard travel to the level's map, the set-up carried by the game instance; progression.md 6). */
+	void TravelTo(FName LevelId);
+	/** The next open level after this one, or None (not cleared, or the last). */
+	FName NextLevel() const;
+	/** The progress code of the player now (progression.md 4.3). */
+	FString ProgressCode() const;
 	void SetInteractHeld(bool bHeld) { bInteract = bHeld; }
 	bool IsInteractHeld() const { return bInteract; }
 
@@ -150,6 +161,7 @@ public:
 	FMIEnemyField& GetEnemies() { return Field; }
 	FMIBoxWorld& GetBoxWorld() { return Box; }
 	const FMILevelData* GetLevel() const { return Level; }
+	FName GetLevelId() const { return LevelId; }
 	const FMIRunStats& GetStats() const { return RunStats; }
 	FMISettings& GetSettings() { return Settings; }
 	const FMIText& GetCopy() const { return Copy; }
@@ -191,7 +203,7 @@ public:
 	virtual void AddShake(double Amount) override;
 	virtual void Stats(int32& Kills, int32& Shots, int32& Hits, int32& Headshots) const override;
 	virtual const FMIEnemyTune* EnemyTune(FName Difficulty) const override { return Tunes.Find(Difficulty); }
-	virtual int32 Best() const override { return Settings.GetBest(); }
+	virtual int32 Best() const override;
 	virtual bool SetBest(int32 Score) override;
 
 	// ---- IMIEnemyHost ------------------------------------------------------------------------------------
@@ -224,6 +236,9 @@ private:
 	FMIText Keys;  // text.json `input`: what the controls are called on each device
 	TMap<FName, FMIEnemyTune> Tunes;
 	const FMILevelData* Level = nullptr;
+	FName LevelId = TEXT("block");
+	void RecordDebrief();
+	bool bTruckIn = false;  // the afterAll truck's colliders are in the box world
 	FMIBoxWorld Box;
 	FMIEnemyField Field;
 	FMIGameRules Rules;

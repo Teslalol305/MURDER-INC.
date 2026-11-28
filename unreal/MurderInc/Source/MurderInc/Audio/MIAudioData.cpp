@@ -1,6 +1,7 @@
 #include "Audio/MIAudioData.h"
 
 #include "Core/Data/MIDataSubsystem.h"
+#include "World/MILevelData.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 #include "Misc/Paths.h"
@@ -358,7 +359,21 @@ bool FMIAudioData::Parse(const TSharedPtr<FJsonObject>& SoundsRoot, const TShare
 bool FMIAudioData::Load(FMIAudioData& Out, FString& OutError)
 {
 	TSharedPtr<FJsonObject> Sounds, Audio;
-	return UMIDataSubsystem::LoadJsonFile(TEXT("audio_sounds.json"), Sounds, OutError)
-		&& UMIDataSubsystem::LoadJsonFile(TEXT("audio.json"), Audio, OutError)
-		&& Parse(Sounds, Audio, Out, OutError);
+	if (!UMIDataSubsystem::LoadJsonFile(TEXT("audio_sounds.json"), Sounds, OutError) || !UMIDataSubsystem::LoadJsonFile(TEXT("audio.json"), Audio, OutError))
+	{
+		return false;
+	}
+	// A map level has its own zones (audio_<id>.json, named by levels.json data.audio); every other key is the global audio.json's.
+	const FName Level = FMILevelData::ActiveId();
+	if (Level != FName(TEXT("block")))
+	{
+		TSharedPtr<FJsonObject> LevelAudio;
+		FString LevelError;
+		const TSharedPtr<FJsonObject>* Zones = nullptr;
+		if (UMIDataSubsystem::LoadJsonFile(FString::Printf(TEXT("audio_%s.json"), *Level.ToString()), LevelAudio, LevelError) && LevelAudio->TryGetObjectField(TEXT("zones"), Zones))
+		{
+			Audio->SetObjectField(TEXT("zones"), *Zones);
+		}
+	}
+	return Parse(Sounds, Audio, Out, OutError);
 }

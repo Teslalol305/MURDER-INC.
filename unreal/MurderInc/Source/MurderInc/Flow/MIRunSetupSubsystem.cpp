@@ -4,6 +4,7 @@
 #include "Engine/GameInstance.h"
 #include "HAL/IConsoleManager.h"
 #include "Kismet/GameplayStatics.h"
+#include "Misc/CommandLine.h"
 #include "MurderInc.h"
 
 namespace MIRunSetupPrivate
@@ -39,10 +40,64 @@ FMIReadiness UMIRunSetupSubsystem::MakeReadiness() const
 	return R;
 }
 
+bool UMIRunSetupSubsystem::UnlockAll() const
+{
+	static const bool bAll = FParse::Param(FCommandLine::Get(), TEXT("MIUnlockAll"));
+	return bAll;
+}
+
+bool UMIRunSetupSubsystem::IsLevelOpen(FName Level) const
+{
+	const FMILoadoutData* Data = GetData();
+	return UnlockAll() || !Data || Progress.IsOpen(Level, Data->LevelOrder);
+}
+
+FName UMIRunSetupSubsystem::OpenLevelFor(FName Level) const
+{
+	const FMILoadoutData* Data = GetData();
+	if (!Data || IsLevelOpen(Level))
+	{
+		return Level;
+	}
+	return Progress.FurthestOpen(Data->LevelOrder);
+}
+
+void UMIRunSetupSubsystem::ProgressToSave(const FMIProgress& In, FMIProgressSave& Out)
+{
+	Out = FMIProgressSave();
+	for (const TPair<FName, FMILevelRecord>& R : In.Levels)
+	{
+		FMILevelRecordSave& S = Out.Levels.AddDefaulted_GetRef();
+		S.Id = R.Key;
+		S.bCleared = R.Value.bCleared;
+		S.Clears = R.Value.Clears;
+		S.BestPoints = R.Value.BestPoints;
+		S.BestDifficulty = R.Value.BestDifficulty;
+		S.HoldBest = R.Value.HoldBest;
+	}
+	Out.bAlbumSeen = In.bAlbumSeen;
+}
+
+void UMIRunSetupSubsystem::ProgressFromSave(const FMIProgressSave& In, FMIProgress& Out)
+{
+	Out = FMIProgress();
+	for (const FMILevelRecordSave& S : In.Levels)
+	{
+		FMILevelRecord& R = Out.Levels.Add(S.Id);
+		R.bCleared = S.bCleared;
+		R.Clears = S.Clears;
+		R.BestPoints = S.BestPoints;
+		R.BestDifficulty = S.BestDifficulty;
+		R.HoldBest = S.HoldBest;
+	}
+	Out.bAlbumSeen = In.bAlbumSeen;
+}
+
 void UMIRunSetupSubsystem::SetSetup(const FMIRunSetup& In)
 {
 	Setup = In;
 	MakeReadiness().Validate(Setup);
+	Setup.Level = OpenLevelFor(Setup.Level);
 	bHave = true;
 }
 
@@ -100,6 +155,11 @@ void UMIRunSetupSubsystem::Load(const UMISaveGame* Save, const FMISettings& Sett
 	{
 		UE_LOG(LogMI, Log, TEXT("Set-up: the saved set-up took %d correction(s) (a gun, part or crew member no longer offered)"), Fixes);
 	}
+	if (Save)
+	{
+		ProgressFromSave(Save->Progress, Progress);
+	}
+	S.Level = OpenLevelFor(S.Level);  // a remembered level that is not open (a fresh session, no code) falls back to the furthest open one
 	Setup = S;
 	bHave = true;
 }
@@ -110,4 +170,5 @@ void UMIRunSetupSubsystem::Write(UMISaveGame& Save) const
 	{
 		ToSave(Setup, Save.Setup);
 	}
+	ProgressToSave(Progress, Save.Progress);
 }
