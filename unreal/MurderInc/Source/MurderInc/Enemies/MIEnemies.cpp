@@ -1045,11 +1045,11 @@ int32 FMIEnemyField::AddFiringCells(int32 N, const FMIEnemy& E, const FVector& T
 	// the cells around it: the ones that can reach the target with a shot and that this Goon can walk to.
 	const double Range = World->GetNavSpec().FiringCellRange;
 	FVector Seed;
-	if (!World->NearestWalkable(TargetPos.X, TargetPos.Z, Range, Seed, E.Layer))
+	if (!World->NearestWalkable(TargetPos.X, TargetPos.Z, Tune.Ai.SightRange, Seed, E.Layer))
 	{
 		return N;
 	}
-	// Where he stands, then a 2 m grid around the seed (a parapet over the player), then random cells over the whole disc
+	// Where he stands, then a 1 m grid around the seed (a parapet over the player), then random cells over the whole disc
 	// around the target: a shot at a body many metres up or down needs room to stand back from the wall that hides it.
 	const double Spread = FMath::Min(Range, Tune.Ai.SightRange) * 0.85;
 	auto TryCell = [&](const FVector& P)
@@ -1077,9 +1077,9 @@ int32 FMIEnemyField::AddFiringCells(int32 N, const FMIEnemy& E, const FVector& T
 	{
 		TryCell(FVector(E.Pos.X, 0, E.Pos.Z));
 	}
-	for (double Dx = -12.0; Dx <= 12.0; Dx += 2.0)
+	for (double Dx = -12.0; Dx <= 12.0; Dx += 1.0)
 	{
-		for (double Dz = -12.0; Dz <= 12.0; Dz += 2.0)
+		for (double Dz = -12.0; Dz <= 12.0; Dz += 1.0)
 		{
 			if (World->IsWalkable(Seed.X + Dx, Seed.Z + Dz, E.Layer))
 			{
