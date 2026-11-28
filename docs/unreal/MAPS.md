@@ -420,3 +420,40 @@ Golden.Directors are untouched.
   cells, a Goon with no cell is returned after about 10 s, once. `MurderInc.Levels.Chinatown.RoofHold`: three roof
   Goons and street Goons fight a player on the roof edge and a player in the street: both sides fire, nobody is
   recycled, nobody leaves his layer. `MurderInc.Levels.Block.OneLayer`: the Block has no layers.
+
+## Fast build 2026-11-28 (Canal Street map, lane C)
+
+L_Chinatown, built by `Content/Python/build_canal.py` (the Block's `build_block.py` pointed at the Canal art; it imports
+`build_block` and reuses its importers, master materials and instanced-mesh helpers). Run it in the editor with
+`import build_canal; build_canal.start("all")` (steps: textures, materials, meshes, paints, signs, wet, canal); status in
+`Saved/BuildBlock/status.txt`. A rerun of `signs,wet,canal` rebuilds the map from the data in 3 to 15 s; the whole build
+from empty content took 455 s on the box. The generated map and assets are not committed (Block convention).
+
+- **Art in.** Blender's outputs are not built on the box: a pack of the chinatown family and what its placements use (370
+  GLBs without the LOD and far-proxy meshes, 77 texture sets, the manifest, `placements_chinatown.json`, the sign files),
+  660 MB in 3 tars, goes through the storage to a lane folder (`MI_ART_IN`), never the shared art folder. LODs and far
+  proxies are not imported: every mesh is Nanite.
+- **Map.** Ground slabs (asphalt, concrete) from `ground.surfaces`; the level's movement-blocking colliders of kind level
+  (and the five props with no mesh) as 3 cm inset matte masses behind the art, no collision of their own (the game builds
+  collision from `level_chinatown.json` at run time, as in the Block); the 2,264 placements as instanced meshes, one
+  holder per building (paint colours per vehicle as clear-coat instances, no instance scaled); 71 sign faces: a new master
+  `M_CT_Sign` reads the atlas (BC, ORM, E) through a per-face cell `Cell = (u1-u0, v1-v0, u0, 1-v1)`, one instance per
+  cell; a board with no text of its own is dark steel (the stand-in slot is rebuilt dark, only Canal's use of it).
+- **Night rig.** One cool movable directional light (0.15 lux, no shadow, no sky atmosphere, no clouds), a sky light
+  captured once, exponential height fog from the night opacity table (0.26 at 92 m), no volumetric fog, histogram
+  exposure EV100 5.0 to 7.5, bloom 0.35. 48 placed lights, 9 of them shadowed, all spots: 9 LED lamps (4 on Canal and
+  Mott shadowed), 13 sign washes in the sign colours, market (4 rects, 2 shadowed bulb spots), bakery, arcade, workshop,
+  alley bulkheads, kitchen roof, the square's pavilion spot (shadowed), banquet and stage, dub room. Cull distances 35 m
+  (25 m shadowed).
+- **Seen** (6 views at 1920 x 1080 from the player's height, `/project/ue/maps/shots` on the box): start, Canal east to
+  the truck's stop, Mott south, the market inside, Lantern Alley, the market roof looking at the rooftop letters.
+- **Performance** (profile of one frame, `ProfileGPU`, headless editor at 1920 x 1080, RTX PRO 6000 shared with other
+  jobs, Vulkan SM6, not -sm5, not the A4000): the start view looking east is 12.7 ms GPU against 25.1 ms for the Block's
+  start view on the same editor; draws 2,352 against 2,399; 8 of the 12.7 ms are post processing (the editor's
+  bloom and TSR at this size), the scene's geometry and lighting about 4 ms. Not measured: -sm5, the A4000, a quiet GPU,
+  the worst view of chinatown.md 14 with Nanite triangle counts.
+- **Known faults.** The market floor reads icy (wet tile blend lit blue); some lightbox bands are plain grey where the
+  data gave no text; wet street copies (`MI_CT_*_Wet`) show no change (the set's alpha carries no wet mask), the street
+  is dark and damp only by its material; the Block's cube-map interiors are not baked for Canal, so shop windows are
+  dark glass with the Block's room cubes where they exist; no decal actors for the street dressing, no steam, no LED
+  animation (emissive only).
