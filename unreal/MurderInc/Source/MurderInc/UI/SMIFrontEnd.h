@@ -41,6 +41,8 @@ public:
 	bool Sync();
 	/** Rebuilds so far (a test reads it: a pointer resting on an option must not rebuild the screen). */
 	int32 GetBuildCount() const { return BuildGen; }
+	/** The width the wrap boxes of the screen on show were sized for (a test reads it: the first picture of a screen is the settled one). */
+	float GetBuiltColumnWidth() const { return BuiltColumnWidth; }
 
 private:
 	void Rebuild();
@@ -95,6 +97,10 @@ private:
 	/** The rack's gun cards by gun: a card is built again only when what it shows changed (its signature), not on every
 	 *  rebuild of the screen (a Loadout rebuild built six cards of about 40 widgets each for every key press). */
 	TMap<FName, TPair<FString, TSharedPtr<SWidget>>> CardCache;
+	/** The widget's width in Slate units from the last Tick, and the width the screen on show was built with. */
+	float ViewW = 0.f;
+	float BuiltViewW = 0.f;
+	float BuiltColumnWidth = 0.f;
 	int32 TicksSinceBuild = 0;
 	int32 HoverOutside = 0;
 	bool bDragging = false;

@@ -773,6 +773,14 @@ bool FMIFrontendSteadyTest::RunTest(const FString& Parameters)
 	SlatePaint(*Widget);
 	// (2) The Workbench: the first carried gun with options.
 	F->Act(TEXT("next"));
+	// The Loadout's first picture is the settled one: its wrap boxes were sized for the Loadout's column (58 % of the
+	// width) on the build itself, not for the Crew screen's (40 %) that was on show before, and the first paint asks no
+	// second build.
+	SlateFrame(F, *Widget);
+	TestEqual(TEXT("the Loadout is built for its own column width"), Widget->GetBuiltColumnWidth(), 1920.f * 0.58f - 78.f, 1.f);
+	const int32 BuildsAtLoadout = Widget->GetBuildCount();
+	SlateFrame(F, *Widget);
+	TestEqual(TEXT("the Loadout is not built again by its first paint"), Widget->GetBuildCount(), BuildsAtLoadout);
 	FName Gun;
 	for (const FName G : F->GetRules().GetSetup().Guns)
 	{

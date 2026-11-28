@@ -8,6 +8,8 @@
 #include "Brushes/SlateRoundedBoxBrush.h"
 #include "Cloud/MICloud.h"
 #include "Engine/GameInstance.h"
+#include "Engine/GameViewportClient.h"
+#include "Engine/UserInterfaceSettings.h"
 #include "Engine/World.h"
 #include "Flow/MIGameSubsystem.h"
 #include "Framework/Application/SlateApplication.h"
@@ -326,10 +328,10 @@ void SMIFrontEnd::Tick(const FGeometry& AllottedGeometry, const double InCurrent
 	}
 	// The screens are rebuilt in Sync, on the game thread before Slate's frame, never here: Slate ticks a widget while
 	// it paints it, after that frame's layout pass, and a screen rebuilt here was drawn once with every control at zero
-	// size, piled at the top of the column (the flash on every screen change in the stream, READY.md M1). Measuring the
-	// new screen here instead left its wrap boxes measured at their default width and its layout stale until the next
-	// rebuild (menu fixer's stream run mf2-after).
-	ColumnWidth = FMath::Max(100.f, static_cast<float>(AllottedGeometry.GetLocalSize().X) * ColumnNow() - (56.f + 22.f));
+	// size, piled at the top of the column (the flash on every screen change in the stream, READY.md M1). So the width is
+	// only remembered here; Rebuild (called by Sync) sizes the new screen's wrap boxes from it, and Sync builds again, before
+	// the next frame is laid out, when the width changed since the last build.
+	ViewW = static_cast<float>(AllottedGeometry.GetLocalSize().X);
 	if (Owner.IsValid() && Owner->GetShowroom() && (Stick.SizeSquared() > 0.0 || Triggers != 0.f))
 	{
 		Owner->GetShowroom()->Stick(Stick, Triggers);
@@ -354,7 +356,14 @@ float SMIFrontEnd::ColumnNow() const
 
 bool SMIFrontEnd::Sync()
 {
-	if (!Owner.IsValid() || Owner->GetVersion() == Built)
+	if (!Owner.IsValid())
+	{
+		return false;
+	}
+	// A width that changed since the last build (the first Tick's real width after a build from an estimate, a resize)
+	// builds the screen again before it is drawn, never a layout that is right only after the first input.
+	const bool bWidthChanged = ViewW > 1.f && FMath::Abs(ViewW - BuiltViewW) > 1.f;
+	if (Owner->GetVersion() == Built && !bWidthChanged)
 	{
 		return false;
 	}
@@ -370,6 +379,26 @@ void SMIFrontEnd::Rebuild()
 		return;
 	}
 	Built = Owner->GetVersion();
+	// The width of the screen being built: the one the last Tick saw, or before any Tick (the first build, a screen shown
+	// on arrival) the viewport's size in Slate units. ColumnNow() is already the incoming screen's share.
+	float W = ViewW;
+	if (W <= 1.f)
+	{
+		W = 1920.f;
+		if (const UWorld* World = Owner->GetWorld(); World && World->GetGameViewport())
+		{
+			FVector2D Size;
+			World->GetGameViewport()->GetViewportSize(Size);
+			if (Size.X > 1.0)
+			{
+				const float Dpi = GetDefault<UUserInterfaceSettings>()->GetDPIScaleBasedOnSize(FIntPoint(FMath::RoundToInt(Size.X), FMath::RoundToInt(Size.Y)));
+				W = static_cast<float>(Size.X) / FMath::Max(0.1f, Dpi);
+			}
+		}
+	}
+	BuiltViewW = W;
+	ColumnWidth = FMath::Max(100.f, W * ColumnNow() - (56.f + 22.f));
+	BuiltColumnWidth = ColumnWidth;
 	++BuildGen;
 	TicksSinceBuild = 0;
 	HoverOutside = 0;
