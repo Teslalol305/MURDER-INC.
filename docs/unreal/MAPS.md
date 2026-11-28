@@ -597,3 +597,69 @@ the Development game of the package, `-sm5`, 1920 x 1080, the Python viewer that
   Canal and Midtown with the player 1.4 m from the case; the director walks in straight lines and gets stuck on
   furniture, so this is the director's range, not shown to be a game fault); the Hold-mode album card; the stream to
   E3DS itself (only the box's viewer); frame time on the A4000.
+
+## Fast build 2026-11-28 (v7 finish: review fixes, walked reels, frame time, repackage)
+
+The integration review of the first v7 package (four should-fix items, no must-fix) was worked through on the same box
+(`tools/box/cloud/lag-test.sh`, the Development game of the package, `-sm5`, the demo director). All run outputs are in
+`/project/ue/cloud/repro/lag-<name>/game.log` on the box; every number below is read from them.
+
+- **Changed (commit bc27c30).**
+  - Midtown's first view: the start stays where the design puts it (on the roof A, just up from bulkhead A) but turns to
+    yaw 10 degrees (facing east along the roof): the first view is now the skyline, the water tower and the screens, and
+    the bulkhead door that filled the right of the old view (a light-blue slab 1 m away) is behind the player. The
+    layout table `layouts/midtown.py` carries it, `level_midtown.json` was rebuilt (10 changed lines), the checker still
+    passes (every check, including `reach.player`), the map's single PlayerStart actor was set to match (it held 11
+    copies; now one).
+  - Canal: the market hall floor was the scanned worn-paint set lit by the blue ceiling and read as ice; the hall mesh's
+    floor slot and the three ground slabs under it are now a dull tiled floor (`MI_CT_MarketFloor`). The night exposure
+    window was lowered (min 5.0 to 3.5, max 7.5 to 6.5) so the roofs are no longer black. Sign boards with no atlas cell
+    are red lacquer with a low glow (`MI_Sign_CT_Face`), not near-black steel. Not changed: Midtown's shared-mesh sign
+    faces keep the default cell, and the wet-ground effect is only as visible as before.
+  - `MICampaign where` (dev only, not in Shipping): logs the player's feet in web metres. The walk tests below read it.
+- **Reel pickup and the walk to each reel, in play (the earlier "grab timed out 1.4 m from the case" was the director,
+  not the game).** The old runs started `guide` after a `hunt` and the guide made no progress at all on Midtown: its
+  remaining distance stayed at the straight-line 24.3 m for 90 s (the director follows the drawn route and does not
+  move when the plan has fewer than two path points; 24.3 m is the straight line from the start to Reel 7, so on
+  Midtown the plan most likely has no path at the start; see "Not fixed" below). The data checker's own
+  guide paths (`reports/check_<id>.json`, `data.guide`) were then walked in the game, waypoint by waypoint.
+  - Canal: `guide` then `grab` took Reel 4 and Reel 5 on the old v7 package (walking, then holding E facing the case
+    from 1.4 m); on the new package leg 3 (Reel 5 to Reel 6) was walked, Reel 6 was taken with `grab`, then leg 4
+    walked to the truck's disc: `extraction:reached`, state `complete`, nobody teleported.
+  - Midtown: leg 1 (start to Reel 7, up the steel stair, into the tank house) and leg 2 (to Reel 8 on the gantry) were
+    walked and both reels taken by `grab` (old package); leg 3 (gantry to Reel 9 down the 13.85 m scaffold) walked one
+    route point at a time from the top to the street (all 29 points reached, every landing 1.7 m lower) on the new
+    package; leg 4 (Reel 9 to the truck) walked to the disc: `extraction:reached`, `complete`.
+  - A straight-line `walk` from the gantry to Reel 9 stalls on the scaffold's first landing (the line crosses the deck
+    above the flight and the player stands on the deck): the director's walk, not a blocked stair; a person following the
+    flights is not stopped.
+  - Reel 9 (the booth) was taken only after a teleport next to it (all six reels were also taken that way, 1.4 m away on
+    each of four sides, facing the case: Canal 3 of 3, Midtown 3 of 3, i.e. the interact range, facing and hold work on
+    the art maps). Not walked in play: leg 3's end (the street, into the booth under the Stand) after the scaffold.
+- **Campaign and Next.** On the new package: the Block (three Goons killed by the director) then `MICampaign finish`,
+  the debrief, Next: the game browsed to `L_Chinatown` and loaded it. Canal (three Goons killed in 5 s) then finish,
+  debrief, Next: browsed to `L_Midtown` and loaded it. Midtown (four roof Goons killed) then finish: the debrief; its
+  Next-less button starts a new run (state intro then playing). The director dies with each travel (it is a world
+  subsystem), so the three levels were not one script.
+- **Goons on the roof and on the street.** Midtown at the start: four Goons on layer 3 (the roof), all in mode 3 or 1
+  and `sees 1`; the director killed all four within 6 s (`MICampaign goons`: 0 live). Canal: three killed in 5 s, one
+  left at (27.5, 0.0, -20.9) not seeing the player. New Goons spawn while the player walks (`enemy:spawn` seen on both
+  maps). The aim assist was not driven (it needs a mouse aimed near a Goon; the director aims by itself): not proven.
+- **Frame time (the bar is 60 fps on E3DS's A4000, not measured).** The only card here is this box's RTX PRO 6000,
+  shared in time slices by the load emulation (`load=1:0.3:0`, SMOOTH.md), the Development game, `-sm5`, the
+  dynamic resolution's lowest picture (0.50), four views each, the new package. Same script and load for the Block
+  (not changed): GPU 20.6 ms (max 22.4), 45 fps; Canal: GPU 18.6 ms (max 19.7), 45 fps; Midtown: GPU 24.3 ms (max 29.2),
+  30 fps (the quality step the stream's ladder takes). So under this load Canal is no heavier than the Block and
+  Midtown is about 18 % heavier; the emulation itself is harsher than E3DS's card (SMOOTH.md: the Block read 10.6 to
+  13.2 ms there at 0.50 to 0.75). This is a relative figure only. Do not read the 60 fps bar as met for Midtown. Four sets
+  of runtime console variables tried on Midtown to find a cheap cut changed nothing: Lumen reflections off 24.7 ms, GI
+  method none 24.7 ms (both probably overridden by the post volume), virtual shadow maps off 25.6 ms, Lumen probe
+  downsample 32 with mesh SDF tracing off 25.2 ms (against 24.3 ms); no cut was made.
+- **Not fixed.** Midtown's guide plan seems to have no drawn path at the start (inferred from the remaining distance
+  being the straight line; not read from the plan itself): the guide would then point through walls until the player is
+  nearer. It did not stop any walk above (those followed the checker's route), so it is a guidance fault, not a soft
+  lock. Why the plan has no route from the roof start is not investigated (nav lane, layered route graph).
+  Midtown shared-mesh sign faces show the default cell. The Canal wet ground and the muzzle flash bloom are as in v7.
+- **Not proven (still).** Aim assist and lock-on (no person, no aimed mouse); a person-played fight (the director's
+  fights are timed kills at close range, not a hand's); the Hold-mode album card; the stream to E3DS itself; the
+  A4000's own frame time; Midtown's Reel 9 by walking the last leg through the booth doors.

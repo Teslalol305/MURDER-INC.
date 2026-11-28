@@ -802,3 +802,13 @@ gave 11 to 15 blinks each, all three on or all three off alike. Those three stag
 **Also changed:** the stage room is 2000 x 2000 x 600 (was 1200): the Loadout column is 58 % wide, the gun is framed in the part
 the column leaves, a long gun with parts put the camera outside the room's wall. The Loadout is wider only on the Loadout; the
 free part of the stage eases between screens (`AMIShowroom::SetFreeLeft`).
+
+## 2026-11-28: v7 finish: the reel "timeout" was the director; what was fixed, what was measured, what stays open
+
+The integration review of the first v7 package asked four things. Decisions, with the evidence in MAPS.md "Fast build 2026-11-28 (v7 finish ...)":
+
+- **Reel pickup and reachability are shown in play, not only in the checker.** Every route the checker draws was walked in the Development game by the demo director (Canal fully: Reel 4, 5, 6 and the truck's disc; Midtown: Reel 7 and 8, the 13.85 m scaffold down to the street one waypoint at a time, the last leg to the disc), and all six reels were taken by holding E facing the case 1.4 m away. The earlier "grab timed out 1.4 m from the case" was the director: after a `hunt` its `guide` did not move (on Midtown the plan gave no path at the start). No game change was made for it.
+- **Midtown's first view turns 10 degrees from the stair** (yaw 10, same place), because the bulkhead door stood a metre from the old view; Canal's market floor, night exposure and blank sign boards were fixed in the builder and the saved map. A level-data change, so the data was rebuilt and checked, not edited by hand.
+- **Frame time is reported as a relative figure, not as the 60 fps bar.** Under the box's A4000 emulation load the unchanged Block reads 20.6 ms GPU at the lowest picture, Canal 18.6, Midtown 24.3 (30 fps step). Midtown is about 18 % over the Block; no cut was made (four sets of console variables tried, none changed it), and the docs no longer say the bar is met.
+- **Not decided here, left open on purpose:** aim assist and lock-on in a person's hands, the A4000's own frame time, why Midtown's guide plan has no route from the roof start.
+
