@@ -23,7 +23,7 @@ import build_block as bb
 ART = os.environ.get("MI_ART_MT", "/project/ue/art-in-mt")
 bb.ART_IN = ART
 MAP_PATH = "/Game/Maps/L_Midtown"
-TAG = "MIMidtown"
+TAG = "MIBlock"  # the game finds the art map and switches the art collision off by this tag (presentation.json block.artTag)
 MAT, MESH = bb.MAT_DIR, bb.MESH_DIR
 SCREEN_MASTER = MAT + "/M_MT_Screen"
 WINDOW_MASTER = MAT + "/M_MT_Window"
