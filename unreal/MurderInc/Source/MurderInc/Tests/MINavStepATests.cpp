@@ -148,7 +148,7 @@ namespace MINavStepAPrivate
 	 * Where a player could stand in the street (layer 0) so that a Goon on `Layer` has somewhere to fight him from: the street cell
 	 * (6 to 26 m from the Goon) that the most roof cells of the Goon's area (within 30 m) can shoot at. False when none can.
 	 */
-	bool StreetSpotUnder(FMap& M, const FVector& GoonPos, int32 Layer, FVector& Out, int32& OutSightCells)
+	bool SpotSeenFrom(FMap& M, const FVector& GoonPos, int32 Layer, int32 TargetLayer, FVector& Out, int32& OutSightCells)
 	{
 		OutSightCells = 0;
 		FMIBoxWorld& W = M.World;
@@ -157,11 +157,11 @@ namespace MINavStepAPrivate
 			for (double Z = GoonPos.Z - 26.0; Z <= GoonPos.Z + 26.0; Z += 3.0)
 			{
 				const double D = FVector::Dist2D(FVector(X, 0, Z), GoonPos);
-				if (D < 6.0 || D > 26.0 || !W.IsWalkable(X, Z, 0))
+				if (D < 6.0 || D > 26.0 || !W.IsWalkable(X, Z, TargetLayer))
 				{
 					continue;
 				}
-				const FVector Eye(X, 1.6, Z);
+				const FVector Eye(X, M.Spec.Layers[TargetLayer].Y + 1.6, Z);
 				int32 Count = 0;
 				for (double Cx = GoonPos.X - 30.0; Cx <= GoonPos.X + 30.0; Cx += 1.0)
 				{
@@ -176,7 +176,7 @@ namespace MINavStepAPrivate
 				if (Count > OutSightCells)
 				{
 					OutSightCells = Count;
-					Out = FVector(X, 0, Z);
+					Out = FVector(X, M.Spec.Layers[TargetLayer].Y, Z);
 				}
 			}
 		}
@@ -317,57 +317,57 @@ bool FMINavMidtownTest::RunTest(const FString& Parameters)
 		}
 	}
 
-	// A player in the street, a Goon on each roof layer: he stays on his layer, walks to a firing cell and fires.
-	const TArray<FName> Roofs = {FName(TEXT("r1")), FName(TEXT("r2")), FName(TEXT("r3"))};
+	// A player one layer below, a Goon on each roof layer: he stays on his layer, walks to a firing cell and fires.
+	// r1 over the street, r2 over r1, r3 over r2 (a street player is out of the r2 and r3 Goons' reach: the parapets hide him
+	// and the nearest sight cell is beyond the firing range, which midtown.md 7.2's spawn reach already keeps them out of).
+	struct FPair { const TCHAR* Goon; const TCHAR* Target; };
+	const FPair Pairs[3] = {{TEXT("r1"), TEXT("street")}, {TEXT("r2"), TEXT("r1")}, {TEXT("r3"), TEXT("r2")}};
 	const TArray<int32> Streets = M.SpawnsOn(FName(TEXT("street")));
-	for (const FName Roof : Roofs)
+	for (const FPair& Pair : Pairs)
 	{
-		// the roof spawn nearest a street spawn, and that street spawn: the player stands there
-		int32 BestRoof = INDEX_NONE, BestStreet = INDEX_NONE;
-		double BestD = 1e9;
+		const FName Roof(Pair.Goon);
+		const int32 GoonLayer = M.Spec.IndexOf(Roof), TargetLayer = M.Spec.IndexOf(FName(Pair.Target));
+		bool bGot = false;
+		FVector PlayerPos = FVector::ZeroVector;
+		int32 Sight = 0, SpawnIdx = INDEX_NONE;
 		for (const int32 R : M.SpawnsOn(Roof))
 		{
-			for (const int32 S : Streets)
+			int32 Count = 0;
+			FVector Spot;
+			if (SpotSeenFrom(M, M.Level.Spawns[R].Pos, GoonLayer, TargetLayer, Spot, Count) && Count > Sight)
 			{
-				const double D = FVector::Dist2D(M.Level.Spawns[R].Pos, M.Level.Spawns[S].Pos);
-				if (D < BestD)
-				{
-					BestD = D;
-					BestRoof = R;
-					BestStreet = S;
-				}
+				Sight = Count;
+				PlayerPos = Spot;
+				SpawnIdx = R;
+				bGot = true;
 			}
 		}
-		if (!TestTrue(FString::Printf(TEXT("%s has a spawn and the street has one"), *Roof.ToString()), BestRoof != INDEX_NONE && BestStreet != INDEX_NONE))
+		if (!TestTrue(FString::Printf(TEXT("%s: a spot on %s that %s cells can shoot at"), Pair.Goon, Pair.Target, Pair.Goon), bGot))
 		{
 			continue;
 		}
-		FVector PlayerPos = M.Level.Spawns[BestStreet].Pos;
-		PlayerPos.Y = 0.0;
-		int32 Sight = 0;
-		if (!TestTrue(FString::Printf(TEXT("%s: some street cell can be shot at from the roof"), *Roof.ToString()), StreetSpotUnder(M, M.Level.Spawns[BestRoof].Pos, M.World.LayerForY(M.Level.Spawns[BestRoof].Pos.Y), PlayerPos, Sight)))
-		{
-			continue;
-		}
-		BestD = FVector::Dist2D(PlayerPos, M.Level.Spawns[BestRoof].Pos);
-		AddInfo(FString::Printf(TEXT("%s: the player stands at (%.0f, %.0f) with %d roof cells that see him"), *Roof.ToString(), PlayerPos.X, PlayerPos.Z, Sight));
+		const double BestD = FVector::Dist2D(PlayerPos, M.Level.Spawns[SpawnIdx].Pos);
+		AddInfo(FString::Printf(TEXT("%s over %s: the player stands at (%.0f, %.1f, %.0f), %.1f m from the Goon, %d cells see him"), Pair.Goon, Pair.Target, PlayerPos.X, PlayerPos.Y, PlayerPos.Z, BestD, Sight));
 		FFight F(M, *this, PlayerPos);
 		if (!F.bLoaded)
 		{
 			return false;
 		}
-		const FMIEnemy* G = F.Add(M.Level.Spawns[BestRoof].Pos);
+		const FMIEnemy* G = F.Add(M.Level.Spawns[SpawnIdx].Pos);
 		if (!TestNotNull(TEXT("the roof Goon spawned"), G))
 		{
 			continue;
 		}
 		const int32 Id = G->Id;
-		TestEqual(FString::Printf(TEXT("%s Goon's layer"), *Roof.ToString()), F.Map.Spec.Layers[G->Layer].Id, Roof);
+		TestEqual(FString::Printf(TEXT("%s Goon's layer"), Pair.Goon), F.Map.Spec.Layers[G->Layer].Id, Roof);
 		F.Run(45.0);
-		AddInfo(FString::Printf(TEXT("%s: player %.1f m away in the street: %d rounds, drift %.2f m, recycled %d"), *Roof.ToString(), BestD, F.RoundsBy(Id), F.Drift.FindRef(Id), F.Recycled));
-		TestTrue(FString::Printf(TEXT("%s Goon stayed on his layer's floor"), *Roof.ToString()), F.Drift.FindRef(Id) < 0.6);
-		TestTrue(FString::Printf(TEXT("%s Goon fires at the player in the street (a firing cell)"), *Roof.ToString()), F.RoundsBy(Id) > 0);
-		TestEqual(FString::Printf(TEXT("%s Goon was not stranded"), *Roof.ToString()), F.Recycled, 0);
+		const FMIEnemy* After = F.Field.Find(Id);
+		AddInfo(FString::Printf(TEXT("%s: %d rounds, drift %.2f m, recycled %d; end: (%.1f, %.1f, %.1f) mode %d sub %d firePos %d (%.1f, %.1f) sees %d pathFails %d"), Pair.Goon, F.RoundsBy(Id), F.Drift.FindRef(Id), F.Recycled,
+			After ? After->Pos.X : 0.0, After ? After->Pos.Y : 0.0, After ? After->Pos.Z : 0.0, After ? static_cast<int32>(After->Mode) : -1, After ? static_cast<int32>(After->Sub) : -1,
+			After ? After->bHasFirePos : 0, After ? After->GoalFireX : 0.0, After ? After->GoalFireZ : 0.0, After ? After->bSees : 0, After ? After->PathFails : 0));
+		TestTrue(FString::Printf(TEXT("%s Goon stayed on his layer's floor"), Pair.Goon), F.Drift.FindRef(Id) < 0.6);
+		TestTrue(FString::Printf(TEXT("%s Goon fires at the player on %s (a firing cell)"), Pair.Goon, Pair.Target), F.RoundsBy(Id) > 0);
+		TestEqual(FString::Printf(TEXT("%s Goon was not stranded"), Pair.Goon), F.Recycled, 0);
 	}
 
 	// A player on r1, a street Goon: he stays on the plane and in free street cells.
