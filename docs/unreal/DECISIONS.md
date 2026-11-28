@@ -748,3 +748,8 @@ it off until the game flow applies the settings. `MurderInc.Assist.Data`, `.Math
   - Legacy links pinned to those versions break; the project link always streams the newest version.
   - Each upload adds about 2.1–2.4 GB, so delete an old version before every release.
 - **Upload path:** the owner signs in (Google) in the plain owner browser on the box, and it is then driven with xdotool plus screenshots. Do not restart it under remote control: the Google sign-in does not survive a restart, which was tried twice on 2026-11-28.
+- **02:15 UTC: v6 is live on E3DS.**
+  - The upload took 33 s and Prepare 37 s. E3DS's test passed in 1 min 21 s, and the build went out to the USA and France machines.
+  - MurderInc is now **Version 6**, which the project link streams. Versions 4 and 5 are kept.
+  - Stream check from the box: the title menu, CLICK TO PLAY, the Crew screen and the Loadout screen (all five guns, attachments) render and take input.
+  - Clicking through the stream from the box's software-rendered browser lands in the wrong place, so the in-mission play check is left to a person playing on a real browser.
