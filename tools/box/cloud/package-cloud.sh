@@ -275,6 +275,8 @@ EOF
 ; ---- cloud package overlay (tools/box/cloud/package-cloud.sh; same as tools/box/demo/package.sh) ----
 [/Script/UnrealEd.ProjectPackagingSettings]
 +MapsToCook=(FilePath="/Game/Maps/L_Block")
++MapsToCook=(FilePath="/Game/Maps/L_Chinatown")
++MapsToCook=(FilePath="/Game/Maps/L_Midtown")
 +DirectoriesToAlwaysCook=(Path="/Game/Art")
 +DirectoriesToAlwaysCook=(Path="/Game/Audio")
 +DirectoriesToAlwaysCook=(Path="/Game/Characters")
@@ -321,7 +323,7 @@ package() {
   say "PACKAGE $cfg ($cook)"
   su ue4 -c "cd $ENGINE && env HOME=/home/ue4 UE-LocalDataCachePath=/project/ue/ddc ./Engine/Build/BatchFiles/RunUAT.sh BuildCookRun \
     -project=$REL/MurderInc.uproject -noP4 -utf8output -unattended -platform=Linux -clientconfig=$cfg -target=MurderInc \
-    -build -nocompileeditor '-UbtArgs=-NoUBA -WaitMutex -MaxParallelActions=$JOBS' $cook -map=/Game/Maps/L_Block -stage -pak -iostore \
+    -build -nocompileeditor '-UbtArgs=-NoUBA -WaitMutex -MaxParallelActions=$JOBS' $cook -map=/Game/Maps/L_Block+/Game/Maps/L_Chinatown+/Game/Maps/L_Midtown -stage -pak -iostore \
     -archive -archivedirectory=$C/build-$cfg -prereqs \
     '-AdditionalCookerOptions=-DDC=(ProjectPak,InstalledProjectPak,EnginePak=InstalledEnginePak,EnterprisePak,InstalledLocal) -NoDDCCleanup -ini:Engine:[Zen]:AutoLaunch=false -ini:Engine:[ConsoleVariables]:AssetRegistry.DisableDirectoryWatcher=1'" \
     || { say "PACKAGE $cfg FAILED"; return 1; }
