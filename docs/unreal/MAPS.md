@@ -378,6 +378,7 @@ the Block to Canal Street to Midtown.
   "Cleared · <rating> · <difficulty>". The progress code is shown under the cards with a box to type a code. The debrief
   of a cleared level has `Next: <level>` as its first item and the progress code as a stat line. `-MIUnlockAll` opens
   every level on a desktop. Hold is offered where the level has ground spawns (no air spawns are needed: the drones are out).
+- **Checked live (editor, PIE, 1920x1080).** Level cards locked, then open after typing a Block-cleared code; travel from the Block to Canal Street (loading card, run starts); Canal complete shows the debrief with the progress code, `Next: Midtown`, Run it back, Change set-up, Back to title; Next travels to Midtown and the run starts there. Two faults found and fixed in that pass: a travelled world had no front end (so its debrief lacked Next and Change set-up), and the HUD could read the text deck a frame before it was loaded (crash on travel). Known leftover: the debrief still lists the \"Vultures dropped\" row (drones are out).
 - **Not built here:** the art maps, lighting rigs and thumbnails (the cards show text only), the page bridge's game half
   (`docs/unreal/patches/maps-progress-bridge`), per-level shader caches, the truck's roll-in, the Hold-mode album card.
 
