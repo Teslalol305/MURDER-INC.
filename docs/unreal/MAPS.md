@@ -495,3 +495,41 @@ show no diff against v6, and `Campaign.BlockUnchanged` passes.
   on Canal).
 - **Not done.** Art maps (`L_Chinatown`, `L_Midtown`) were not on this box, so the boot never drew an art map and a grey
   map together. Night lighting, the Hold-mode album card, packaged or E3DS travel, frame rate and hitching on travel.
+
+## Fast build 2026-11-28 (Midtown map, lane M)
+
+`L_Midtown` is built, in about two hours of box time, by `unreal/MurderInc/Content/Python/build_midtown.py` (it reuses
+`build_block.py`'s importers and masters; nothing of the Block's data, code or content changes). Run it in the editor:
+`import build_midtown; build_midtown.start("all")` (steps `textures,materials,meshes,level`; the level step alone takes
+about 8 s). Inputs: the Midtown archive of art/out (`maps-midtown.tar`, unpacked) plus the scan sets it names that the
+Block did not have, in one art-in folder (`MI_ART_MT`, default `/project/ue/art-in-mt`: `glb/`, `textures/`,
+`manifest.json` cut to the 172 Midtown assets, the manifest's emissive colour lists written as hex), the level data
+`tools/levels/data/level_midtown.json` and `art/out/placements/placements_midtown.json`.
+
+- **Imported:** 138 meshes (the `_LOD1` ones are skipped, Nanite is on for all), 40 textures, about 400 material
+  instances. New masters: `M_MT_Screen` (an atlas rect per face: one instance per screen, per tile on the tiled ones,
+  emissive only, no animation), `M_MT_Window` (night panes: a quarter lit, tungsten to TV blue, from the world
+  position), `M_MT_Backdrop` (the far towers). Night values of the lit slots are `MI_MT_*` flat instances applied by
+  slot name on the meshes, so the Block's and Canal's shared instances are not touched.
+- **The map:** 15 ground slabs, one collider box per level collider (610): hidden full-size collision under every
+  collider the art draws (the fitted ones and the stairs, parapets, scaffold, gantry, wall and billboards), a grey box
+  for the rest (the cars the art does not cover, the explosives, the planters, the service stair); the five roofs'
+  masses are drawn 32 cm inside their collision so the facade bays (which reach 30 cm in) show their windows. 1,677
+  placements as instanced static meshes (one actor per mesh) and 268 screen faces as actors; 68 dark far towers on three
+  rings; the player start from the level data.
+- **The art fix:** the screens E1, E2a, E2b and S1 sat 3 m and 0.4 m behind the round-3 facade modules and could not be
+  seen: moved 3.45 m and 0.55 m toward the plaza in the builder (`SCREEN_SHIFT`; the placements file is not changed).
+  Every slot on the canvas scan came out lime under the lamps (the scan is blue and the manifest tints assume white):
+  scaffold netting, scrim, tents, umbrellas and cushions are flat cloth colours now.
+- **Night rig:** one moon (a faint cool directional, two cascades, shadows), a dim sky light, haze, a fixed exposure
+  (EV100 3.0), and 26 placed lights: 6 street lamps and the plaza poles as spots with shadows, 2 roof work lights, 8
+  door glows, 6 rect lights in front of the screens. No stat beyond that.
+- **Pictures looked at (1920x1080, editor viewport, Lumen):** the six views V1 roof start, V2 gantry side, V3 gantry,
+  V4 scaffold, V5 the booth's window, V6 the street, plus the screens from the plaza, the Stand, the booth inside and a
+  facade close-up, five rounds; the last round is clean of the lime, the white-out screens and the missing windows.
+- **Cost (V1, the worst view by the art lane's count):** `ProfileGPU` in the SM6 editor at 1920x1080: 4.85 ms graphics
+  (2,363 draws) plus 1.32 ms async compute on the RTX PRO 6000. This is not the `-sm5` game and not a stream.
+- **Not done / unproven:** the truck's arrival on W 46 St is the engine lane's (the map has no truck); the reel
+  rooms are the art's rooms with the reels spawned by the game from the data; nothing of the map was played, no Goon
+  walked it, no test suite was run on it; per-face atlas cells of the sign faces are the meshes' default cells (the
+  name plates and the billboard show their default face); no Higgsfield props were needed; no `-sm5` frame time.
