@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Core/Data/MILoadoutData.h"
+#include "Flow/MIProgress.h"
 #include "Flow/MISettings.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "MIRunSetupSubsystem.generated.h"
@@ -33,10 +34,22 @@ public:
 	void Write(UMISaveGame& Save) const;
 	bool HasSetup() const { return bHave; }
 
+	/** The campaign progress (cleared levels, best ratings): kept across level travel, written with the set-up. */
+	const FMIProgress& GetProgress() const { return Progress; }
+	FMIProgress& EditProgress() { return Progress; }
+	/** `-MIUnlockAll` (desktop tests): every level counts as open. */
+	bool UnlockAll() const;
+	bool IsLevelOpen(FName Level) const;
+	/** The level the set-up names when it is open, else the furthest open one. */
+	FName OpenLevelFor(FName Level) const;
+	static void ProgressToSave(const FMIProgress& In, FMIProgressSave& Out);
+	static void ProgressFromSave(const FMIProgressSave& In, FMIProgress& Out);
+
 	static void ToSave(const FMIRunSetup& In, FMISetupSave& Out);
 	static void FromSave(const FMISetupSave& In, FMIRunSetup& Out);
 
 private:
 	FMIRunSetup Setup;
 	bool bHave = false;
+	FMIProgress Progress;
 };

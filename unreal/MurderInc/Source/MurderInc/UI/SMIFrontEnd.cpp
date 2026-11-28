@@ -1,4 +1,5 @@
 #include "UI/SMIFrontEnd.h"
+#include "Widgets/Input/SEditableTextBox.h"
 #include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Brushes/SlateColorBrush.h"
@@ -1096,18 +1097,39 @@ TSharedRef<SWidget> SMIFrontEnd::Where()
 		const FMILevelEntry& E = R.GetData().Levels[L];
 		TArray<FString> ModeNames;
 		for (const FName M : R.GetReadiness().ModesOf(L)) ModeNames.Add(R.Text(TEXT("text.modes.") + M.ToString() + TEXT(".name")));
-		const FString Place = E.Place.Contains(S.Time) ? R.Text(E.Place[S.Time]) : FString();
+		const FString Place = E.Place.Contains(S.Time) ? R.Text(E.Place[S.Time]) : (E.Place.Num() > 0 ? R.Text(E.Place.CreateConstIterator().Value()) : FString());
+		const bool bOpen = R.IsLevelOpen(L);
+		const FString State = R.LevelState(L);
 		Levels->AddSlot().AutoHeight().Padding(0.f, 0.f, 0.f, 6.f)
 		[
 			SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Card, L == S.Level)).ContentPadding(FMargin(14.f, 10.f))
 			.OnClicked_Lambda([O, L]() { if (O.IsValid()) O->Act(TEXT("level"), L.ToString()); return FReply::Handled(); })
 			[
 				SNew(SVerticalBox)
-				+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(E.TextKey + TEXT(".name")), Display(30.f), Ink())]
-				+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(E.TextKey + TEXT(".blurb")), Body(MinText), InkDim(), true)]
+				+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(E.TextKey + TEXT(".name")), Display(30.f), bOpen ? Ink() : InkFaint())]
+				+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(E.TextKey + TEXT(".blurb")), Body(MinText), bOpen ? InkDim() : InkFaint(), true)]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Txt(Place, Body(MinText, true), Gold(), true)]
 				+ SVerticalBox::Slot().AutoHeight()[Txt(R.GetData().Format(TEXT("frontend.level.modes"), {{TEXT("modes"), FString::Join(ModeNames, TEXT(" · "))}}), Body(MinText), InkFaint(), true)]
+				+ SVerticalBox::Slot().AutoHeight()[Txt(State, Body(MinText, true), bOpen ? Gold() : Red(), true)]
 			]
+		];
+	}
+	// The progress code: shown, and typed to pick up where a session left off (the stream gives every session a fresh save).
+	{
+		const FString Code = Owner->GetGame() ? Owner->GetGame()->ProgressCode() : FString();
+		Levels->AddSlot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Txt(R.Text(TEXT("frontend.campaign.codeLabel")).ToUpper() + TEXT("  ") + Code, Spaced(Body(MinText, true), 100), InkDim())]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(14.f, 0.f, 0.f, 0.f)
+			[
+				SNew(SBox).WidthOverride(190.f)
+				[
+					SNew(SEditableTextBox).Font(Body(MinText, true)).HintText(FText::FromString(TEXT("Enter a code")))
+					.OnTextCommitted_Lambda([O](const FText& T, ETextCommit::Type C) { if (C == ETextCommit::OnEnter && O.IsValid()) O->Act(TEXT("code"), T.ToString()); })
+				]
+			]
+			+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center).Padding(14.f, 0.f, 0.f, 0.f)[Txt(R.LastMessage, Body(MinText, true), Gold(), true)]
 		];
 	}
 	// 2. Time.

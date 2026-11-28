@@ -1,0 +1,121 @@
+{
+ "title": {
+  "eyebrow": "IPX PRESENTS \u00b7 CHINATOWN, MANHATTAN"
+ },
+ "location": {
+  "place": "Chinatown, Manhattan \u00b7 Canal St \u00b7 7:40 PM",
+  "byTime": {
+   "night": "Chinatown, Manhattan \u00b7 Canal St \u00b7 7:40 PM"
+  },
+  "tagline": "Three more masters. One market. Tight corners.",
+  "taglineHoldout": "One street. Endless Vultures."
+ },
+ "modes": {
+  "mission": {
+   "note": "Take back three more masters and reach the IPX truck. About five minutes."
+  },
+  "holdout": {
+   "name": "Hold Canal Street",
+   "note": "Endless waves down Canal and out of every door. How long can you hold it?"
+  }
+ },
+ "objectives": {
+  "mission": [
+   "Take back three more master reels",
+   "Two reels left",
+   "Last reel",
+   "Get to the IPX truck"
+  ]
+ },
+ "reels": {
+  "list": [
+   {
+    "id": "reel4",
+    "code": "4",
+    "label": "Reel 4 \u2014 The Tables"
+   },
+   {
+    "id": "reel5",
+    "code": "5",
+    "label": "Reel 5 \u2014 The Market"
+   },
+   {
+    "id": "reel6",
+    "code": "6",
+    "label": "Reel 6 \u2014 The Dub Room"
+   }
+  ]
+ },
+ "radio": {
+  "intro": {
+   "text": "{name}, it's the Vault. Vultures moved three more masters to Canal \u2014 the tables, the market, the dub room. Bring them home.",
+   "secs": 4.3
+  },
+  "introHoldout": {
+   "text": "{name}, it's the Vault. Vultures are coming out of every door on Canal. Hold the street.",
+   "secs": 3.7
+  },
+  "reel": [
+   {
+    "text": "That's one. Canal heard it \u2014 more coming.",
+    "secs": 2.9
+   },
+   {
+    "text": "Two. They're pouring out of the back rooms.",
+    "secs": 2.9
+   },
+   {
+    "text": "All three. The IPX truck is idling at the east end of Canal. Cut through the arcade. Move.",
+    "secs": 3.8
+   }
+  ],
+  "done": {
+   "text": "Masters are in the vault. Canal's clean, {name}. They're taking what's left uptown.",
+   "secs": 3.6
+  }
+ },
+ "cards": {
+  "dead": {
+   "stats": {
+    "time": "Time on Canal"
+   }
+  },
+  "debrief": {
+   "kicker": "Chinatown, Manhattan \u00b7 Debrief",
+   "title": "Canal is yours"
+  }
+ },
+ "boot": [
+  "Lighting the signs",
+  "Hosing down the market",
+  "Stacking the tables",
+  "Waiting out the rain"
+ ],
+ "zones": {
+  "canal": "CANAL ST",
+  "alley": "LANTERN ALLEY",
+  "market": "THE MARKET",
+  "mott": "MOTT ST"
+ },
+ "briefing": {
+  "plan": [
+   "Three masters on Canal: a bootleg table out front, the market's cold room, the dub room off Mott.",
+   "Close quarters. They come out of doorways, not just the street ends.",
+   "The IPX truck waits at the east end of Canal."
+  ]
+ },
+ "loading": {
+  "kicker": "Level 2 of 3",
+  "title": "Canal Street",
+  "line": "They're cutting copies in the back rooms. Pull the masters out."
+ },
+ "teaser": "Six home. The last three went uptown. Their buyer wants your album on the big screens over the square at midnight.",
+ "guide": {
+  "hints": {
+   "reel4": "Reel 4's on a table outside the market. South side of Canal.",
+   "reel5": "Back of the market. The cold room, by the west wall.",
+   "reel6": "The dub room's at the south end of Mott St. Its shutter's the only one up.",
+   "extraction": "The truck's at the east end of Canal. Cut through the arcade off the square."
+  }
+ }
+}

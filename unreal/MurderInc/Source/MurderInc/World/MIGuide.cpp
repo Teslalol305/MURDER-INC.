@@ -577,7 +577,7 @@ void AMIGuide::BeginPlay()
 	{
 		UE_LOG(LogMI, Log, TEXT("Guide: %s"), *Error);
 	}
-	Plan.Init(Tune, FMILevelData::Get());
+	Plan.Init(Tune, FMILevelData::Current());
 	Build();
 }
 

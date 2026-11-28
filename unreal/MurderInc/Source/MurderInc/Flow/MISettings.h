@@ -26,6 +26,28 @@ struct FMISetupSave
 	UPROPERTY() bool bPlayed = false;                 // false: Hit the block on Home opens Crew
 };
 
+/** One level's campaign record in the save (progression.md 4.2). */
+USTRUCT()
+struct FMILevelRecordSave
+{
+	GENERATED_BODY()
+	UPROPERTY() FName Id;
+	UPROPERTY() bool bCleared = false;
+	UPROPERTY() int32 Clears = 0;
+	UPROPERTY() int32 BestPoints = -1;
+	UPROPERTY() FName BestDifficulty;
+	UPROPERTY() int32 HoldBest = 0;
+};
+
+/** The campaign progress: cleared levels, best ratings, Hold bests. An old save has none (defaults: nothing cleared). */
+USTRUCT()
+struct FMIProgressSave
+{
+	GENERATED_BODY()
+	UPROPERTY() TArray<FMILevelRecordSave> Levels;
+	UPROPERTY() bool bAlbumSeen = false;
+};
+
 /** The stored record: one save-game slot holds the settings, the best Hold the Block score (spec 04 2.16) and the
  *  remembered set-up (LOADOUT.md 7). */
 UCLASS()
@@ -54,6 +76,8 @@ public:
 	UPROPERTY() int32 View = 1;
 	UPROPERTY() int32 Best = 0;
 	UPROPERTY() FMISetupSave Setup;
+	/** The campaign (progression.md 4.2). The Block's Hold best stays in Best. */
+	UPROPERTY() FMIProgressSave Progress;
 };
 
 /**

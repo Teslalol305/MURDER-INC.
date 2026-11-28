@@ -18,6 +18,10 @@ struct FMILevelPoint
 	FName Zone;
 	FString Place;
 	bool bInterior = false;
+	// Map levels (data_contract.md 1): the nav layer the point is on, whether it is used, the zones it overlooks.
+	FName Layer;
+	bool bEnabled = true;
+	TArray<FName> Overlooks;  // when not empty, a spawn here is a candidate only while the player is in one of these zones
 };
 
 struct FMILevelObjective
@@ -56,6 +60,16 @@ struct FMIRoom
 	TArray<FMIDoorway> Doorways;
 };
 
+/** `tuning` of a map level (data_contract.md 3, E7): its adds over config.json. Absent on the Block. */
+struct FMILevelTuning
+{
+	int32 MaxAliveAdd = 0;
+	int32 PursuitBudgetAdd = 0;
+	bool bExcludePlayerRoom = false;
+	TArray<TPair<double, int32>> RatingTime;  // seconds, stars; empty: the config table
+	TOptional<double> StartPitch;             // degrees
+};
+
 struct FMILevelExplosive
 {
 	int32 Index = 0;
@@ -84,13 +98,34 @@ struct MURDERINC_API FMILevelData
 	TArray<FVector> CinematicPos;
 	TArray<FVector> CinematicLook;
 
+	// ---- what only the map levels have ----
+	FName Id = TEXT("block");
+	/** False when the file has no `el` (Canal, Midtown): Deck is then a degenerate rectangle far outside the bounds. */
+	bool bHasDeck = true;
+	FMILevelTuning Tuning;
+	/** extraction.arrival == "afterAll": the truck is hidden and its colliders stay out of the box world until every reel is in. */
+	bool bTruckAfterAll = false;
+	TArray<int32> TruckColliders;  // indices into Colliders
+	/** `nav` of a map level: the raw object (layers, links, spawnReach), kept in the contract's shape for the nav lane. */
+	TSharedPtr<FJsonObject> NavJson;
+	TArray<FName> NavLayerIds;
+	/** The room (index into Rooms) that holds a point, or INDEX_NONE. */
+	int32 RoomAt(const FVector& WebPos) const;
+
 	/** The zone that holds (x, z), or None. */
 	const FMILevelZone* ZoneAt(double X, double Z) const;
 
 	/** Fills a box world with the level's colliders and bounds. */
 	void FillWorld(FMIBoxWorld& World, const FMIRng& Root) const;
 
-	static bool Load(FMILevelData& Out, FString& OutError);
-	/** Loaded once per process; null (and an error in the log) when level.json is missing or malformed. */
+	/** File: Content/Data/<File>. The Block's is level.json, a map level's is level_<id>.json. */
+	static bool Load(FMILevelData& Out, FString& OutError, const FString& File = TEXT("level.json"));
+	/** The Block, loaded once per process; null (and an error in the log) when level.json is missing or malformed. */
 	static const FMILevelData* Get();
+	/** One cached object per level id; "block" is the object Get() returns. Null (and an error in the log) when it does not load. */
+	static const FMILevelData* ForLevel(FName Id);
+	/** The level the running game plays: set by the game mode before the world begins (Block until then). */
+	static void SetActive(FName Id);
+	static FName ActiveId();
+	static const FMILevelData* Current();
 };

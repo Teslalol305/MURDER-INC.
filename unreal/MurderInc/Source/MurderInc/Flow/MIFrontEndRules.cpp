@@ -562,9 +562,40 @@ FMIGunBars FMIFrontEndRules::Bars(FName Gun, const FMIGunBuild* Build) const
 
 // ------------------------------------------------------------------------------------------------- Block & Style
 
+bool FMIFrontEndRules::IsLevelOpen(FName Level) const
+{
+	return !Progress || bUnlockAll || Progress->IsOpen(Level, Data->LevelOrder);
+}
+
+FName FMIFrontEndRules::LevelBefore(FName Level) const
+{
+	const int32 I = Data->LevelOrder.IndexOfByKey(Level);
+	return I > 0 ? Data->LevelOrder[I - 1] : NAME_None;
+}
+
+FString FMIFrontEndRules::LevelState(FName Level) const
+{
+	if (!Progress)
+	{
+		return FString();
+	}
+	if (!IsLevelOpen(Level))
+	{
+		const FName Before = LevelBefore(Level);
+		return Text(TEXT("frontend.level.locked")) + TEXT(" \u00b7 ") + Data->Format(TEXT("frontend.level.lockedHint"), {{TEXT("level"), Text(FString::Printf(TEXT("frontend.levels.%s.name"), *Before.ToString()))}});
+	}
+	const FMILevelRecord* R = Progress->Levels.Find(Level);
+	if (R && R->bCleared)
+	{
+		return Data->Format(TEXT("frontend.level.cleared"), {{TEXT("rating"), Text(FString::Printf(TEXT("text.ratings.%d"), FMath::Max(0, R->BestPoints)))},
+			{TEXT("difficulty"), Text(TEXT("text.difficulties.") + R->BestDifficulty.ToString())}});
+	}
+	return Text(TEXT("frontend.level.notCleared"));
+}
+
 void FMIFrontEndRules::SetLevel(FName Level)
 {
-	if (Data->Levels.Contains(Level))
+	if (Data->Levels.Contains(Level) && IsLevelOpen(Level))
 	{
 		Setup.Level = Level;
 		Seen(Level);

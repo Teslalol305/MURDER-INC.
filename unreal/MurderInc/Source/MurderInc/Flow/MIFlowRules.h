@@ -84,7 +84,8 @@ struct MURDERINC_API FMIText
 	/** A {"$template"} at Path with its arguments by name; numbers given as text are put in verbatim. */
 	FString Format(const FString& Path, const TMap<FString, FString>& Args) const;
 	int32 Count(const FString& Path) const;
-	static bool Load(FMIText& Out, FString& OutError);
+	/** text.json `text`; for a map level, text_<id>.json is merged over it (keys it lacks fall back to the Block's). */
+	static bool Load(FMIText& Out, FString& OutError, FName LevelId = NAME_None);
 	/** Math.round(x).toLocaleString('en-US'): 12,345. */
 	static FString Grouped(double X);
 };

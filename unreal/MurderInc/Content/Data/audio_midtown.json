@@ -1,0 +1,218 @@
+{
+ "meta": {
+  "file": "audio_midtown.json",
+  "about": "Midtown's audio zones and beds (midtown.md 13), audio.json's zone schema, named by levels.json data.audio; no El and no train here (MAPS.md E6).",
+  "generator": "tools/levels/build_level.py"
+ },
+ "zones": {
+  "about": "web units; each zone has a fade margin; the strongest wins (audio.json zones). There is no roof preset yet: the roofs use street with their own bed",
+  "street": {
+   "preset": "street",
+   "default": true
+  },
+  "roofs": {
+   "preset": "street",
+   "box": [
+    [
+     -50,
+     12,
+     -38
+    ],
+    [
+     -3,
+     40,
+     22
+    ]
+   ],
+   "fade": 3.0,
+   "bed": "bed_roofs_wind"
+  },
+  "square": {
+   "preset": "street",
+   "box": [
+    [
+     -8,
+     0,
+     -38
+    ],
+    [
+     31,
+     12,
+     22
+    ]
+   ],
+   "fade": 3.0,
+   "bed": "bed_square_premiere"
+  },
+  "w46": {
+   "preset": "street",
+   "box": [
+    [
+     -50,
+     0,
+     22
+    ],
+    [
+     31,
+     12,
+     37
+    ]
+   ],
+   "fade": 3.0,
+   "bed": "bed_w46_traffic"
+  },
+  "bulkheadA": {
+   "preset": "shop",
+   "box": [
+    [
+     -48,
+     21.2,
+     -37
+    ],
+    [
+     -44,
+     24.0,
+     -33
+    ]
+   ],
+   "fade": 1.5,
+   "interior": true
+  },
+  "tankHouse": {
+   "preset": "shop",
+   "box": [
+    [
+     -22,
+     17.6,
+     -35
+    ],
+    [
+     -16,
+     20.4,
+     -29
+    ]
+   ],
+   "fade": 1.5,
+   "interior": true
+  },
+  "machineRoom": {
+   "preset": "shop",
+   "box": [
+    [
+     -40,
+     17.6,
+     -8
+    ],
+    [
+     -34,
+     20.6,
+     -2
+    ]
+   ],
+   "fade": 1.5,
+   "interior": true
+  },
+  "serviceStair": {
+   "preset": "shop",
+   "box": [
+    [
+     -13,
+     0,
+     4
+    ],
+    [
+     -8,
+     16.8,
+     10
+    ]
+   ],
+   "fade": 1.5,
+   "interior": true
+  },
+  "booth": {
+   "preset": "shop",
+   "box": [
+    [
+     10.6,
+     0.15,
+     -34
+    ],
+    [
+     21.4,
+     2.25,
+     -29.5
+    ]
+   ],
+   "fade": 1.5,
+   "interior": true
+  }
+ },
+ "ambience": {
+  "beds": {
+   "night": "bed_night_midtown"
+  },
+  "train": null,
+  "oneShots": {
+   "about": "midtown.md 13: new sounds for the audio lane (none exist yet)",
+   "hvac_hum": {
+    "points": [
+     [
+      -35.5,
+      22.7,
+      -16
+     ],
+     [
+      -44.7,
+      22.7,
+      -30
+     ],
+     [
+      -40,
+      19.0,
+      4.5
+     ],
+     [
+      -43,
+      15.4,
+      13
+     ],
+     [
+      -15.2,
+      19.0,
+      -13.7
+     ],
+     [
+      -11.2,
+      19.0,
+      -13.7
+     ]
+    ],
+    "range": 6.0
+   },
+   "premiere_loop": {
+    "from": "the screens' speakers",
+    "note": "invented instrumental, no real song"
+   },
+   "crowd_murmur": {
+    "place": "behind the north barricades"
+   },
+   "generator_hum": {
+    "pos": [
+     20.0,
+     0.8,
+     -20.6
+    ]
+   },
+   "truck_arrival": {
+    "on": "all reels secured",
+    "note": "engine and air brakes, then idle"
+   },
+   "g1_glitch": {
+    "on": "objective:secured reel8"
+   },
+   "ipx_takeover": {
+    "on": "all reels secured"
+   }
+  }
+ }
+}

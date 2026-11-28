@@ -3,6 +3,7 @@
 #include "Core/Data/MIDataSubsystem.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
+#include "MurderInc.h"
 #include "Enemies/MIEnemyLogic.h"
 #include "Enemies/MIEnemyTune.h"
 
@@ -338,7 +339,31 @@ bool FMIFlowTune::Parse(const TSharedPtr<FJsonObject>& Config, FMIFlowTune& O, F
 
 // ----------------------------------------------------------------------------------------------------- text
 
-bool FMIText::Load(FMIText& Out, FString& OutError)
+namespace
+{
+	void MergeText(const TSharedPtr<FJsonObject>& Into, const TSharedPtr<FJsonObject>& From)
+	{
+		for (const TPair<FString, TSharedPtr<FJsonValue>>& P : From->Values)
+		{
+			const TSharedPtr<FJsonObject>* Dst = nullptr;
+			if (P.Value->Type == EJson::Object && Into->TryGetObjectField(P.Key, Dst))
+			{
+				MergeText(*Dst, P.Value->AsObject());
+			}
+			else if (P.Value->Type == EJson::String)
+			{
+				// The radio lines name the crew member by {name}; a map level's deck says Rule (the crew table patches the Block's lines only).
+				Into->SetStringField(P.Key, P.Value->AsString().Replace(TEXT("{name}"), TEXT("Rule")));
+			}
+			else
+			{
+				Into->SetField(P.Key, P.Value);
+			}
+		}
+	}
+}
+
+bool FMIText::Load(FMIText& Out, FString& OutError, FName LevelId)
 {
 	TSharedPtr<FJsonObject> Root;
 	if (!UMIDataSubsystem::LoadJsonFile(TEXT("text.json"), Root, OutError))
@@ -352,6 +377,19 @@ bool FMIText::Load(FMIText& Out, FString& OutError)
 		return false;
 	}
 	Out.Root = *Text;
+	if (!LevelId.IsNone() && LevelId != FName(TEXT("block")))
+	{
+		TSharedPtr<FJsonObject> Overlay;
+		FString OverlayError;
+		if (UMIDataSubsystem::LoadJsonFile(FString::Printf(TEXT("text_%s.json"), *LevelId.ToString()), Overlay, OverlayError))
+		{
+			MergeText(Out.Root, Overlay);
+		}
+		else
+		{
+			UE_LOG(LogMI, Warning, TEXT("Text: %s (the Block's lines are used)"), *OverlayError);
+		}
+	}
 	return true;
 }
 

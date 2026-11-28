@@ -366,9 +366,27 @@ bool FMIGameRules::ChoosePosition(FName Type, double MinDistance, bool bStrict, 
 	{
 		for (const FMILevelPoint& Point : Level->Spawns)
 		{
-			if (Point.Type != Wanted)
+			if (Point.Type != Wanted || !Point.bEnabled)
 			{
 				continue;
+			}
+			// Map levels: a roof point is used only while the player is where it overlooks (data_contract.md 1); no Goon
+			// appears in the room the player stands in (tuning.spawn.excludePlayerRoom, E8).
+			if (Point.Overlooks.Num() > 0)
+			{
+				const FMILevelZone* Here = Level->ZoneAt(P.X, P.Z);
+				if (!Here || !Point.Overlooks.Contains(Here->Id))
+				{
+					continue;
+				}
+			}
+			if (Level->Tuning.bExcludePlayerRoom)
+			{
+				const int32 PlayerRoom = Level->RoomAt(P);
+				if (PlayerRoom != INDEX_NONE && PlayerRoom == Level->RoomAt(Point.Pos))
+				{
+					continue;
+				}
 			}
 			if (bLayers && !World->GetNavSpec().Allows(PlayerLayer, World->LayerForY(Point.Pos.Y)))
 			{
@@ -729,7 +747,7 @@ void FMIGameRules::UpdateExtraction()
 			Complete();
 		}
 	}
-	else if (Clock - RefusedAt > Tune.RefuseEvery)
+	else if (!Level->bTruckAfterAll && Clock - RefusedAt > Tune.RefuseEvery)
 	{
 		RefusedAt = Clock;
 		Message(Text.Get(TEXT("prompts.refuse")), Tune.RefuseSecs);

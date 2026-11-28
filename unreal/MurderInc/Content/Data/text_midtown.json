@@ -1,0 +1,122 @@
+{
+ "title": {
+  "eyebrow": "IPX PRESENTS \u00b7 MIDTOWN, MANHATTAN"
+ },
+ "location": {
+  "place": "Midtown, Manhattan \u00b7 Seventh Av \u00b7 11:52 PM",
+  "byTime": {
+   "night": "Midtown, Manhattan \u00b7 Seventh Av \u00b7 11:52 PM"
+  },
+  "tagline": "Last three masters. Up top, then down.",
+  "taglineHoldout": "One square. Endless Vultures."
+ },
+ "modes": {
+  "mission": {
+   "note": "The last three masters, roof to street, then the IPX truck. About six minutes."
+  },
+  "holdout": {
+   "name": "Hold the Square",
+   "note": "Endless waves over the square. How long can you hold it?"
+  }
+ },
+ "objectives": {
+  "mission": [
+   "Take back the last three master reels",
+   "Two reels left",
+   "Last reel",
+   "Get to the IPX truck"
+  ]
+ },
+ "reels": {
+  "list": [
+   {
+    "id": "reel7",
+    "code": "7",
+    "label": "Reel 7 \u2014 The Tank"
+   },
+   {
+    "id": "reel8",
+    "code": "8",
+    "label": "Reel 8 \u2014 The Gantry"
+   },
+   {
+    "id": "reel9",
+    "code": "9",
+    "label": "Reel 9 \u2014 The Booth"
+   }
+  ]
+ },
+ "radio": {
+  "intro": {
+   "text": "{name}, it's the Vault. Last three masters are on these roofs and down in the square. Their buyer wants your album on the big screens at midnight. Not tonight.",
+   "secs": 4.9
+  },
+  "introHoldout": {
+   "text": "{name}, it's the Vault. The square's full of Vultures. Hold it down as long as you can.",
+   "secs": 3.7
+  },
+  "reel": [
+   {
+    "text": "One back. Every roof heard that. More coming.",
+    "secs": 3.0
+   },
+   {
+    "text": "Two. One left out there. They're throwing everything at you now.",
+    "secs": 3.3
+   },
+   {
+    "text": "That's all three. The IPX truck's rolling up on Forty-Sixth, east of the square. Move.",
+    "secs": 3.7
+   }
+  ],
+  "done": {
+   "text": "Every master's home. The city's yours, {name}.",
+   "secs": 3.0
+  }
+ },
+ "cards": {
+  "dead": {
+   "stats": {
+    "time": "Time in Midtown"
+   }
+  },
+  "debrief": {
+   "kicker": "Midtown, Manhattan \u00b7 Debrief",
+   "title": "The city is yours"
+  }
+ },
+ "boot": [
+  "Lighting up the square",
+  "Filling the water tanks",
+  "Rolling the screens",
+  "Clearing the barricades"
+ ],
+ "zones": {
+  "high": "HALVORSEN ROOF",
+  "tanks": "THE TANKS",
+  "gantry": "THE GANTRY",
+  "back": "BACK ROOFS",
+  "square": "THE SQUARE",
+  "w46": "W 46 ST"
+ },
+ "briefing": {
+  "plan": [
+   "Three masters: the tank house up top, the gantry behind the big screen, the booth under the stand.",
+   "Work down the roofs. Stairs and the scaffold get you to the street.",
+   "When all three are in, the IPX truck comes for you on Forty-Sixth."
+  ]
+ },
+ "loading": {
+  "kicker": "Level 3 of 3",
+  "title": "Midtown",
+  "line": "Midnight over the square. Last three masters."
+ },
+ "guide": {
+  "hints": {
+   "reel7": "The tanks are one roof down from the top. Steel stair on the east side of the high roof.",
+   "reel8": "The gantry's behind the big screen, on the low roof. Stairs at the south edge of the tank roof.",
+   "reel9": "The booth's under the stand, north end of the square. Scaffold off the gantry, or the service stair inside.",
+   "extraction": "The truck's on Forty-Sixth, east of the square. Down Broadway, past the bus."
+  }
+ }
+}

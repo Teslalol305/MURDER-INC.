@@ -10,6 +10,7 @@
 #include "Engine/World.h"
 #include "Flow/MIGameSubsystem.h"
 #include "Flow/MIRunSetupSubsystem.h"
+#include "Flow/MIProgress.h"
 #include "Framework/Application/SlateApplication.h"
 #include "GameFramework/PlayerController.h"
 #include "MurderInc.h"
@@ -75,6 +76,10 @@ bool UMIFrontEnd::Init(UMIGameSubsystem* InGame)
 		Ready.AssetExists = FMIReadiness::PackageExists();
 	}
 	Rules.Init(Data, Ready, Resolver.Get(), Saved);
+	if (Setup)
+	{
+		Rules.SetProgress(&Setup->GetProgress(), Setup->UnlockAll());
+	}
 	ViewData = MakeUnique<FMIViewmodelData>();
 	FMIViewmodelData::Load(*ViewData, Error);
 
@@ -387,6 +392,23 @@ bool UMIFrontEnd::Act(const FString& Action, const FString& Arg)
 	else if (A == TEXT("fit")) { Rules.Fit(Arg == TEXT("factory") ? NAME_None : N); NoteFit(); }
 	else if (A == TEXT("reset")) { bool bDone = false; for (int32 I = 0; I < 120 && !bDone; ++I) bDone = Rules.HoldReset(1.0 / 60.0, true); }
 	else if (A == TEXT("level")) Rules.SetLevel(N);
+	else if (A == TEXT("code"))
+	{
+		// A typed progress code (progression.md 3.6): a good one merges into the progress and opens what it says; a bad one changes nothing.
+		FMIProgress Decoded;
+		UMIRunSetupSubsystem* RunSetup = Game.IsValid() ? UMIRunSetupSubsystem::Get(Game.Get()) : nullptr;
+		if (RunSetup && FMIProgress::DecodeCode(Arg, Decoded))
+		{
+			RunSetup->EditProgress().Merge(Decoded);
+			Game->SaveSettings();
+			Rules.LastMessage = Rules.GetData().Format(TEXT("frontend.campaign.code.ok"), {{TEXT("level"),
+				Rules.Text(FString::Printf(TEXT("frontend.levels.%s.name"), *RunSetup->GetProgress().FurthestOpen(Rules.GetData().LevelOrder).ToString()))}});
+		}
+		else
+		{
+			Rules.LastMessage = Rules.Text(TEXT("frontend.campaign.code.bad"));
+		}
+	}
 	else if (A == TEXT("time") || A == TEXT("mode") || A == TEXT("difficulty")) WriteSetting(FName(*A), N);
 	else if (A == TEXT("home")) Rules.OpenHome();
 	else if (A == TEXT("controls")) bShowControls = !bShowControls;  // Home: the full controls list
