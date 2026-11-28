@@ -148,6 +148,8 @@ def make_sign_instance(name, atlas, uv, force):
 def sign_units(force):
     pl = placements()
     yield "sign master", lambda: build_sign_master(force)
+    # A board with no text of its own (a generic lightbox, a stall board) is dark painted steel, not a white stand-in.
+    yield "sign stand-in", lambda: B.make_flat_instance("MI_Sign_CT_Face", ((0.035, 0.035, 0.04), 0.55, 0.0, 0.0), True)
     for (atlas, uv), name in sign_cells(pl).items():
         yield "sign " + name, (lambda n=name, a=atlas, u=uv: make_sign_instance(n, a, u, force))
 
@@ -343,7 +345,7 @@ def lights_unit(lv, pl):
         white = kelvin(5000)
         warm = kelvin(3200)
         for k, (x, y) in enumerate(((-2000, -800), (-600, -800), (-2000, 250), (-600, 250))):
-            light("rect", "Market_%d" % k, (x, y, 500), DOWN, white, 5000.0, 1200.0, size=(120, 60), draw=3500.0)
+            light("rect", "Market_%d" % k, (x, y, 500), DOWN, white, 2200.0, 1200.0, size=(120, 60), draw=3500.0)
         light("spot", "MarketBulb_Cross", (-1300, -400, 505), DOWN, kelvin(2900), 7000.0, 1200.0, shadow=True, cone=85.0)
         light("spot", "MarketBulb_Cold", (-300, 600, 505), DOWN, kelvin(6500), 6000.0, 1200.0, shadow=True, cone=85.0)
         for k, (x, y) in enumerate(((300, -900), (300, 100))):
@@ -403,7 +405,7 @@ def rig_unit(lv):
             ("dynamic_global_illumination_method", unreal.DynamicGlobalIlluminationMethod.LUMEN),
             ("reflection_method", unreal.ReflectionMethod.LUMEN),
             ("auto_exposure_method", unreal.AutoExposureMethod.AEM_HISTOGRAM),
-            ("auto_exposure_min_brightness", 2.0), ("auto_exposure_max_brightness", 4.5),
+            ("auto_exposure_min_brightness", 5.0), ("auto_exposure_max_brightness", 7.5),
             ("auto_exposure_speed_up", 6.0), ("auto_exposure_speed_down", 6.0),
             ("bloom_intensity", 0.35), ("bloom_threshold", -1.0), ("vignette_intensity", 0.15),
             ("white_temp", 5600.0),
