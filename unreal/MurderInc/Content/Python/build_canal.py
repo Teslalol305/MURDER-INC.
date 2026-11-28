@@ -85,6 +85,10 @@ def paint_name(slot, colour):
 
 SIGN_MASTER = B.MAT_DIR + "/M_CT_Sign"
 SIGN_NITS = 450.0        # night: lit faces about 450 nits (the lightbox range of chinatown.md 11.3 is 100 to 300 at 1x; bloom helps)
+# A board with no cell of its own: red-lacquered lightbox with a low glow (it was near-black steel and read grey at night).
+SIGN_STANDIN = ((0.42, 0.045, 0.03), 0.4, 0.0, 60.0)
+MARKET_FLOOR = ((0.075, 0.07, 0.065), 0.5, 0.0, 0.0)   # the market hall's dull tiled floor: the scanned concrete lit by the blue ceiling read as ice
+MARKET_BOX = (-2600.0, 800.0, -1400.0, 1000.0)          # ue minX, maxX, minY, maxY of the hall's ground slabs
 SIGN_HLSL = "return UV * Cell.xy + Cell.zw;"
 
 
@@ -149,7 +153,7 @@ def sign_units(force):
     pl = placements()
     yield "sign master", lambda: build_sign_master(force)
     # A board with no text of its own (a generic lightbox, a stall board) is dark painted steel, not a white stand-in.
-    yield "sign stand-in", lambda: B.make_flat_instance("MI_Sign_CT_Face", ((0.035, 0.035, 0.04), 0.55, 0.0, 0.0), True)
+    yield "sign stand-in", lambda: B.make_flat_instance("MI_Sign_CT_Face", SIGN_STANDIN, True)
     for (atlas, uv), name in sign_cells(pl).items():
         yield "sign " + name, (lambda n=name, a=atlas, u=uv: make_sign_instance(n, a, u, force))
 
@@ -204,6 +208,10 @@ def ground_units(lv):
             ue = s["ue"]
             gname = B.GROUND_SURFACE.get(s["surface"], B.GROUND_SURFACE["concrete"])[0]
             m = mat(WET.get(gname, gname))
+            if s["surface"] == "concrete" and MARKET_BOX[0] <= ue["minX"] and ue["maxX"] <= MARKET_BOX[1] and \
+                    MARKET_BOX[2] <= ue["minY"] and ue["maxY"] <= MARKET_BOX[3]:
+                B.make_flat_instance("MI_CT_MarketFloor", MARKET_FLOOR, False)
+                m = mat("MI_CT_MarketFloor")
             B.spawn_box("Ground_%02d_%s" % (k, s["surface"]), FOLDER + "/Ground",
                         ((ue["minX"] + ue["maxX"]) / 2, (ue["minY"] + ue["maxY"]) / 2, -5.0),
                         ((ue["maxX"] - ue["minX"]) / 2, (ue["maxY"] - ue["minY"]) / 2, 5.0), m)
@@ -280,6 +288,8 @@ def art_units(pl):
                                 comp.set_material_by_name(slot["slot"], m)
                 if cell and mat(cell):
                     comp.set_material_by_name("M_Sign_CT_Face", mat(cell))
+                if mesh == "SM_Struct_CT_MarketHall" and mat("MI_CT_MarketFloor"):
+                    comp.set_material_by_name("MI_Floor_ScanPaintWorn", mat("MI_CT_MarketFloor"))
                 count += len(transforms)
             return "%d instances, %d meshes%s" % (count, len(groups), ("; missing " + ",".join(sorted(missing))) if missing else "")
         yield "art " + building, place
@@ -433,7 +443,7 @@ def rig_unit(lv):
             ("dynamic_global_illumination_method", unreal.DynamicGlobalIlluminationMethod.LUMEN),
             ("reflection_method", unreal.ReflectionMethod.LUMEN),
             ("auto_exposure_method", unreal.AutoExposureMethod.AEM_HISTOGRAM),
-            ("auto_exposure_min_brightness", 5.0), ("auto_exposure_max_brightness", 7.5),
+            ("auto_exposure_min_brightness", 3.5), ("auto_exposure_max_brightness", 6.5),
             ("auto_exposure_speed_up", 6.0), ("auto_exposure_speed_down", 6.0),
             ("bloom_intensity", 0.35), ("bloom_threshold", -1.0), ("vignette_intensity", 0.15),
             ("white_temp", 5600.0),

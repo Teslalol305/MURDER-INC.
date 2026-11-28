@@ -427,8 +427,8 @@ def build():
     L.interior("booth", 10.6, SW, -34, 21.4, 2.25, -29.5, reel="reel9")
 
     # ------------------------------------------------------------------ the player, the reels, the truck
-    L.player_start = {"source": "midtown.md 6.1: on A, just up from bulkhead A, looking south-east toward the steel stair",
-                      "pos": (-43.2, R3, -35.0), "facing": (0.6965, 0.7175), "layer": "r3"}
+    L.player_start = {"source": "midtown.md 6.1: on A, just up from bulkhead A, looking east along the roof at the skyline and WT-A (turned from the stair so the bulkhead door is not in the first view)",
+                      "pos": (-43.2, R3, -35.0), "facing": (0.9848, 0.1736), "layer": "r3"}
     L.objective("reel7", "7", "Reel 7 — The Tank", "THE TANKS", "tanks", (-19.0, R2, -33.0), -1.5708, True, layer="r2",
                 note="inside the tank house under WT-C on C (2.0 m door on the south side)")
     L.objective("reel8", "8", "Reel 8 — The Gantry", "THE GANTRY", "gantry", (-6.0, R1, -0.6), -1.5708, False, layer="r1",

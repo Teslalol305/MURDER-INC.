@@ -813,7 +813,7 @@
   ]
  },
  "playerStart": {
-  "source": "midtown.md 6.1: on A, just up from bulkhead A, looking south-east toward the steel stair",
+  "source": "midtown.md 6.1: on A, just up from bulkhead A, looking east along the roof at the skyline and WT-A (turned from the stair so the bulkhead door is not in the first view)",
   "zone": "high",
   "layer": "r3",
   "web": {
@@ -822,11 +822,11 @@
     "y": 21.2,
     "z": -35.0
    },
-   "yaw": -2.371,
+   "yaw": -1.7453,
    "facing": {
-    "x": 0.6965,
+    "x": 0.9848,
     "y": 0,
-    "z": 0.7175
+    "z": 0.1736
    }
   },
   "ue": {
@@ -835,7 +835,7 @@
     "Y": -3500.0,
     "Z": 2120.0
    },
-   "yaw": 45.8509
+   "yaw": 9.9974
   }
  },
  "objectives": [

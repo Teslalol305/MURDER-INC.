@@ -874,6 +874,12 @@ void AMIPlayerController::MICampaign(const FString& Command)
 		}
 		UE_LOG(LogMI, Log, TEXT("MICampaign %s: the player at (%.1f, %.1f, %.1f) on %s"), *Command, At.X, At.Y, At.Z, *G->GetLevelId().ToString());
 	}
+	else if (G && L && Command == TEXT("where"))
+	{
+		// Dev: where the player stands (web metres, feet) and which way he looks: the walk tests read it after a stall.
+		const FVector Feet = G->PlayerFeetWeb();
+		UE_LOG(LogMI, Log, TEXT("MICampaign where: the player at (%.2f, %.2f, %.2f) on %s"), Feet.X, Feet.Y, Feet.Z, *G->GetLevelId().ToString());
+	}
 	else if (G && L && Command == TEXT("goons"))
 	{
 		// Dev: every live Goon, where he is (web metres), his nav layer, what he is doing and whether he sees the player.
