@@ -152,12 +152,12 @@ namespace MINavStepAPrivate
 	{
 		OutSightCells = 0;
 		FMIBoxWorld& W = M.World;
-		for (double X = GoonPos.X - 26.0; X <= GoonPos.X + 26.0; X += 3.0)
+		for (double X = GoonPos.X - 40.0; X <= GoonPos.X + 40.0; X += 3.0)
 		{
-			for (double Z = GoonPos.Z - 26.0; Z <= GoonPos.Z + 26.0; Z += 3.0)
+			for (double Z = GoonPos.Z - 40.0; Z <= GoonPos.Z + 40.0; Z += 3.0)
 			{
 				const double D = FVector::Dist2D(FVector(X, 0, Z), GoonPos);
-				if (D < 6.0 || D > 26.0 || !W.IsWalkable(X, Z, TargetLayer))
+				if (D < 6.0 || D > 40.0 || !W.IsWalkable(X, Z, TargetLayer))
 				{
 					continue;
 				}
@@ -360,13 +360,27 @@ bool FMINavMidtownTest::RunTest(const FString& Parameters)
 		}
 		const int32 Id = G->Id;
 		TestEqual(FString::Printf(TEXT("%s Goon's layer"), Pair.Goon), F.Map.Spec.Layers[G->Layer].Id, Roof);
-		F.Run(45.0);
+		for (int32 Step = 0; Step < 9; ++Step)
+		{
+			F.Run(5.0);
+			if (const FMIEnemy* S = F.Field.Find(Id))
+			{
+				FString Path;
+				for (const FVector& P : S->Path)
+				{
+					Path += FString::Printf(TEXT("(%.1f,%.1f) "), P.X, P.Z);
+				}
+				AddInfo(FString::Printf(TEXT("  %s t=%d: (%.1f, %.1f) mode %d sub %d goal %d (%.1f, %.1f) hasPath %d idx %d fails %d stuck %.1f/%d sees %d rounds %d path %s"), Pair.Goon, (Step + 1) * 5, S->Pos.X, S->Pos.Z, static_cast<int32>(S->Mode), static_cast<int32>(S->Sub),
+					S->bHasGoal, S->GoalX, S->GoalZ, S->bHasPath, S->PathIndex, S->PathFails, S->Stuck, S->StuckCount, S->bSees, F.RoundsBy(Id), *Path));
+			}
+		}
 		const FMIEnemy* After = F.Field.Find(Id);
 		AddInfo(FString::Printf(TEXT("%s: %d rounds, drift %.2f m, recycled %d; end: (%.1f, %.1f, %.1f) mode %d sub %d firePos %d (%.1f, %.1f) sees %d pathFails %d"), Pair.Goon, F.RoundsBy(Id), F.Drift.FindRef(Id), F.Recycled,
 			After ? After->Pos.X : 0.0, After ? After->Pos.Y : 0.0, After ? After->Pos.Z : 0.0, After ? static_cast<int32>(After->Mode) : -1, After ? static_cast<int32>(After->Sub) : -1,
 			After ? After->bHasFirePos : 0, After ? After->GoalFireX : 0.0, After ? After->GoalFireZ : 0.0, After ? After->bSees : 0, After ? After->PathFails : 0));
 		TestTrue(FString::Printf(TEXT("%s Goon stayed on his layer's floor"), Pair.Goon), F.Drift.FindRef(Id) < 0.6);
 		TestTrue(FString::Printf(TEXT("%s Goon fires at the player on %s (a firing cell)"), Pair.Goon, Pair.Target), F.RoundsBy(Id) > 0);
+		TestTrue(FString::Printf(TEXT("%s Goon keeps firing (not frozen after his first burst): %d rounds in 45 s"), Pair.Goon, F.RoundsBy(Id)), F.RoundsBy(Id) >= 30);
 		TestEqual(FString::Printf(TEXT("%s Goon was not stranded"), Pair.Goon), F.Recycled, 0);
 	}
 
