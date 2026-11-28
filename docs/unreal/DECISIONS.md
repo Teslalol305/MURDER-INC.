@@ -787,6 +787,14 @@ in how the screens are built again at every part change (`UMIFrontEnd::Tick` bui
 Result, same script, same package otherwise: blinks 13 (v6 screens), 12 (inline panel, text fix only), 2 (both fixes), and the 2 left are on
 Home, before the Loadout, none at a fit, a look or a removal.
 
+**The first picture of a screen (the checker of the fix, v6.1).** The Loadout opened in the narrow layout (the title wrapped to "PICK UP TO /
+FOUR", cards and slot text one word a line, the rack clipped) and snapped to the right one at the first key or click: `ColumnWidth` was
+set in `Tick`, after the screen was built in `Sync`, so a screen was built with the previous screen's width (Crew's 40 % against the
+Loadout's 58 %) or the 690 default. Now `Rebuild` takes the incoming screen's width (the last width Slate gave the widget, or before any
+Tick the viewport's size in Slate units) times that screen's column share, and `Sync` builds again, before Slate's frame, when the
+width changed since the build. `MurderInc.Frontend.Steady` checks that the Loadout is built for 58 % of the width and that its first
+paint asks no second build.
+
 **What was suspected and is NOT the cause** (measured, kept out of the change): the 3D stage. The same package run with the stage's old
 behaviour on and off (a camera cut marked at every part change, the whole gun built again at every change, the jump to a mount's side)
 gave 11 to 15 blinks each, all three on or all three off alike. Those three stage changes were taken out again.
