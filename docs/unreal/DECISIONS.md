@@ -754,7 +754,7 @@ it off until the game flow applies the settings. `MurderInc.Assist.Data`, `.Math
   - Stream check from the box: the title menu, CLICK TO PLAY, the Crew screen and the Loadout screen (all five guns, attachments) render and take input.
   - Clicking through the stream from the box's software-rendered browser lands in the wrong place, so the in-mission play check is left to a person playing on a real browser.
 
-## 2026-11-28: attachments are on the Loadout beside the rack; the flicker was wrapped text drawn on one line (owner, v6 on E3DS)
+## 2026-11-28: attachments are on the Loadout beside the rack; the flicker was the hover and the wrapped text of a screen built again (owner, v6 on E3DS)
 
 **Owner:** "the screen flickers when adding attachments to weapons. It's also difficult to navigate to the attachment options. When
 you click a gun the option for attachments should show up in the frame with it, so users can click weapon, add attachments, then
