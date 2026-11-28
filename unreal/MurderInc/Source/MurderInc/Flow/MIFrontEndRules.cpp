@@ -573,6 +573,16 @@ FName FMIFrontEndRules::LevelBefore(FName Level) const
 	return I > 0 ? Data->LevelOrder[I - 1] : NAME_None;
 }
 
+FString FMIFrontEndRules::RatingName(int32 Points) const
+{
+	const TSharedPtr<FJsonValue> V = MIJson::Get(TextJson, TEXT("text.ratings"));
+	if (V.IsValid() && V->Type == EJson::Array && V->AsArray().IsValidIndex(Points))
+	{
+		return V->AsArray()[Points]->AsString();
+	}
+	return FString::FromInt(Points);
+}
+
 FString FMIFrontEndRules::LevelState(FName Level) const
 {
 	if (!Progress)
@@ -587,7 +597,7 @@ FString FMIFrontEndRules::LevelState(FName Level) const
 	const FMILevelRecord* R = Progress->Levels.Find(Level);
 	if (R && R->bCleared)
 	{
-		return Data->Format(TEXT("frontend.level.cleared"), {{TEXT("rating"), Text(FString::Printf(TEXT("text.ratings.%d"), FMath::Max(0, R->BestPoints)))},
+		return Data->Format(TEXT("frontend.level.cleared"), {{TEXT("rating"), RatingName(R->BestPoints)},
 			{TEXT("difficulty"), Text(TEXT("text.difficulties.") + R->BestDifficulty.ToString())}});
 	}
 	return Text(TEXT("frontend.level.notCleared"));

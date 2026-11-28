@@ -1628,10 +1628,16 @@ void UMIGameSubsystem::TravelTo(FName Target)
 	MILoadingCard::Show(Kicker, Title, Line);
 	const FString Url = FString::Printf(TEXT("level=%s?block=1?travelled"), *Target.ToString());
 	TWeakObjectPtr<UWorld> WeakWorld(World);
-	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([WeakWorld, Map, Url](float)
+	TWeakObjectPtr<UMIGameSubsystem> WeakSelf(this);
+	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([WeakWorld, WeakSelf, Map, Url](float)
 	{
 		if (UWorld* W = WeakWorld.Get())
 		{
+			// The set-up screens are a viewport widget too: they would stay over the new world, so they go before it loads.
+			if (WeakSelf.IsValid() && WeakSelf->FrontEnd)
+			{
+				WeakSelf->FrontEnd->Hide();
+			}
 			UGameplayStatics::OpenLevel(W, FName(*Map), true, Url);
 		}
 		return false;

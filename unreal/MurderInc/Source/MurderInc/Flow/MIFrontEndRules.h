@@ -143,6 +143,7 @@ public:
 	bool IsLevelOpen(FName Level) const;
 	/** The state line of a level card: "Locked · Finish The Block to open", "Not cleared yet" or "Cleared · Gold · Boss". Empty with no progress. */
 	FString LevelState(FName Level) const;
+	FString RatingName(int32 Points) const;
 	/** The level before this one in the order (for the lock hint), or None. */
 	FName LevelBefore(FName Level) const;
 	void SetMode(FName Mode);
