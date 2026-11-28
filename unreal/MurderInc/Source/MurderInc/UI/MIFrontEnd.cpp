@@ -225,7 +225,8 @@ int32 UMIFrontEnd::NumFocusable() const
 	{
 	case EMIFrontScreen::Home: return 10;  // Hit the block, Gear up, Mode, Difficulty, Time, the summary's Crew, Guns, Where, Settings, Controls
 	case EMIFrontScreen::Crew: return Rules.OfferedCrew().Num();
-	case EMIFrontScreen::Loadout: return Pane == 0 ? Rules.Rack(RackFilter).Num() : Rules.GetData().CarryMax;
+	case EMIFrontScreen::Loadout:
+		return Pane == 0 ? Rules.Rack(RackFilter).Num() : Pane == 2 ? Rules.BenchOptions(Rules.GetBenchSlot()).Num() : Rules.GetData().CarryMax;
 	case EMIFrontScreen::Workbench: return Rules.BenchOptions(Rules.GetBenchSlot()).Num();
 	case EMIFrontScreen::Where: return 4;     // level, time, mode, difficulty
 	case EMIFrontScreen::Briefing: return 5;  // crew, carrying, block, style, Hit the block
@@ -360,7 +361,17 @@ bool UMIFrontEnd::Act(const FString& Action, const FString& Arg)
 	}
 	else if (A == TEXT("crew")) Rules.ChooseCrew(N);
 	else if (A == TEXT("filter")) RackFilter = N;
-	else if (A == TEXT("carry")) bOk = Rules.Carry(N);
+	else if (A == TEXT("carry"))
+	{
+		bOk = Rules.Carry(N);
+		if (Rules.GetScreen() == EMIFrontScreen::Loadout)
+		{
+			// A card picked with the pointer: the focus is on it, and its parts are on the screen with it.
+			Pane = 0;
+			const int32 At = Rules.Rack(RackFilter).IndexOfByKey(N);
+			if (At != INDEX_NONE) Focus = At;
+		}
+	}
 	else if (A == TEXT("slot"))
 	{
 		FString SlotText, Gun;
@@ -372,10 +383,27 @@ bool UMIFrontEnd::Act(const FString& Action, const FString& Arg)
 		if (Arg.Split(TEXT(" "), &X, &Y)) Rules.SwapSlots(FCString::Atoi(*X) - 1, FCString::Atoi(*Y) - 1);
 	}
 	else if (A == TEXT("empty")) Rules.EmptySlot(FCString::Atoi(*Arg) - 1);
-	else if (A == TEXT("selectslot")) Rules.SelectSlot(FCString::Atoi(*Arg) - 1);
+	else if (A == TEXT("selectslot"))
+	{
+		Rules.SelectSlot(FCString::Atoi(*Arg) - 1);
+		// The slot's gun is the one whose parts the panel shows.
+		if (Rules.GetScreen() == EMIFrontScreen::Loadout && Rules.GetSetup().Guns.IsValidIndex(Rules.GetSelectedSlot()))
+		{
+			Rules.FocusGun(Rules.GetSetup().Guns[Rules.GetSelectedSlot()]);
+		}
+	}
 	else if (A == TEXT("focusgun")) Rules.FocusGun(N);
 	else if (A == TEXT("bench")) Rules.OpenWorkbench(N.IsNone() ? Rules.GetFocusGun() : N);
-	else if (A == TEXT("benchslot")) Rules.ChooseBenchSlot(N);
+	else if (A == TEXT("benchslot"))
+	{
+		Rules.ChooseBenchSlot(N);
+		if (Rules.GetScreen() == EMIFrontScreen::Loadout)
+		{
+			Pane = 2;  // the pointer chose a slot of the parts panel: the keys act there too
+			bOnNext = false;
+			Focus = FMath::Max(0, Rules.BenchOptions(Rules.GetBenchSlot()).IndexOfByKey(Rules.FittedIn(Rules.GetBenchSlot())));
+		}
+	}
 	else if (A == TEXT("benchnext")) Rules.BenchNextGun(Arg.IsEmpty() ? 1 : FCString::Atoi(*Arg));
 	else if (A == TEXT("preview"))
 	{
@@ -389,7 +417,18 @@ bool UMIFrontEnd::Act(const FString& Action, const FString& Arg)
 		}
 		Rules.PreviewPart(Part);
 	}
-	else if (A == TEXT("fit")) { Rules.Fit(Arg == TEXT("factory") ? NAME_None : N); NoteFit(); }
+	else if (A == TEXT("fit"))
+	{
+		const FName Part = Arg == TEXT("factory") ? NAME_None : N;
+		Rules.Fit(Part);
+		NoteFit();
+		if (Rules.GetScreen() == EMIFrontScreen::Loadout)
+		{
+			Pane = 2;
+			bOnNext = false;
+			Focus = FMath::Max(0, Rules.BenchOptions(Rules.GetBenchSlot()).IndexOfByKey(Part));
+		}
+	}
 	else if (A == TEXT("reset")) { bool bDone = false; for (int32 I = 0; I < 120 && !bDone; ++I) bDone = Rules.HoldReset(1.0 / 60.0, true); }
 	else if (A == TEXT("level")) Rules.SetLevel(N);
 	else if (A == TEXT("code"))
@@ -464,6 +503,26 @@ bool UMIFrontEnd::HoverBlocked()
 	return false;
 }
 
+void UMIFrontEnd::EnterParts()
+{
+	Rules.StopPreview();
+	Pane = 2;
+	bOnNext = false;
+	bResetDown = false;
+	Focus = FMath::Max(0, Rules.BenchOptions(Rules.GetBenchSlot()).IndexOfByKey(Rules.FittedIn(Rules.GetBenchSlot())));
+	Changed();
+}
+
+void UMIFrontEnd::LeaveParts()
+{
+	Rules.StopPreview();
+	Pane = 0;
+	bResetDown = false;
+	const int32 At = Rules.Rack(RackFilter).IndexOfByKey(Rules.GetFocusGun());
+	Focus = FMath::Max(0, At);
+	Changed();
+}
+
 void UMIFrontEnd::Move(int32 Dx, int32 Dy)
 {
 	UMIGameSubsystem::UiNote(TEXT("ui:hover"), Game.Get());
@@ -482,7 +541,7 @@ void UMIFrontEnd::Move(int32 Dx, int32 Dy)
 	switch (S)
 	{
 	case EMIFrontScreen::Crew: bLastRow = true; break;  // one row of cards
-	case EMIFrontScreen::Loadout: bLastRow = Pane == 0 ? Focus / 3 == (Count - 1) / 3 : Focus >= Count - 1; break;
+	case EMIFrontScreen::Loadout: bLastRow = Pane == 0 ? Focus / 3 == (Count - 1) / 3 : Focus >= Count - 1; break;  // (the parts: Down past the last option)
 	case EMIFrontScreen::Workbench: bLastRow = Focus >= Count - 1; break;
 	case EMIFrontScreen::Where: bLastRow = Focus >= 3; break;
 	default: break;
@@ -515,8 +574,40 @@ void UMIFrontEnd::Move(int32 Dx, int32 Dy)
 		break;
 	}
 	case EMIFrontScreen::Loadout:
-		if (Pane == 0)
+		if (Pane == 2)
 		{
+			// The parts panel: Up and Down walk the options of the slot (focus previews, Enter fits), Left and Right the
+			// slots; Left from the first slot, or Up from the first option, goes back to the card.
+			const TArray<FName> Slots = Rules.BenchSlots();
+			const TArray<FName> Options = Rules.BenchOptions(Rules.GetBenchSlot());
+			const int32 At = Slots.IndexOfByKey(Rules.GetBenchSlot());
+			if ((Dx < 0 && At <= 0) || (Dy < 0 && Focus <= 0))
+			{
+				LeaveParts();
+			}
+			else
+			{
+				if (Dx != 0 && Slots.Num() > 0)
+				{
+					Rules.ChooseBenchSlot(Slots[FMath::Clamp(At + Dx, 0, Slots.Num() - 1)]);
+					Focus = FMath::Max(0, Rules.BenchOptions(Rules.GetBenchSlot()).IndexOfByKey(Rules.FittedIn(Rules.GetBenchSlot())));
+				}
+				if (Dy != 0)
+				{
+					Focus = FMath::Clamp(Focus + Dy, 0, FMath::Max(0, Options.Num() - 1));
+					if (Options.IsValidIndex(Focus)) Rules.PreviewPart(Options[Focus]);  // focus previews, it does not fit
+				}
+			}
+		}
+		else if (Pane == 0)
+		{
+			// Right from the last card of a row goes to the gun's parts (when it has any), as the panel stands beside the rack.
+			const bool bRowEnd = Focus % 3 == 2 || Focus >= Count - 1;
+			if (Dx > 0 && bRowEnd && Rules.BenchSlots().Num() > 0)
+			{
+				EnterParts();
+				break;
+			}
 			const int32 Next = Focus + Dx + Dy * 3;  // three cards wide
 			Focus = FMath::Clamp(Next, 0, Count - 1);
 			const TArray<FName> Rack = Rules.Rack(RackFilter);
@@ -533,6 +624,7 @@ void UMIFrontEnd::Move(int32 Dx, int32 Dy)
 		{
 			Focus = FMath::Clamp(Focus + Dy + Dx, 0, Count - 1);  // the slots are a strip: across walks it too
 			Rules.SelectSlot(Focus);
+			if (Rules.GetSetup().Guns.IsValidIndex(Focus)) Rules.FocusGun(Rules.GetSetup().Guns[Focus]);  // the slot's gun: its parts are the panel's
 		}
 		break;
 	case EMIFrontScreen::Workbench:
@@ -605,10 +697,24 @@ void UMIFrontEnd::Activate()
 		break;
 	}
 	case EMIFrontScreen::Loadout:
-		if (Pane == 0)
+		if (Pane == 2)
+		{
+			const TArray<FName> Options = Rules.BenchOptions(Rules.GetBenchSlot());
+			if (Options.IsValidIndex(Focus)) Act(TEXT("fit"), Options[Focus].IsNone() ? TEXT("factory") : Options[Focus].ToString());
+		}
+		else if (Pane == 0)
 		{
 			const TArray<FName> Rack = Rules.Rack(RackFilter);
-			if (Rack.IsValidIndex(Focus)) Act(TEXT("carry"), Rack[Focus].ToString());
+			if (Rack.IsValidIndex(Focus))
+			{
+				// Enter picks the gun; on a gun already carried it goes on to its parts, so a keyboard needs no other key.
+				const bool bHad = Rules.SlotOf(Rack[Focus]) != INDEX_NONE;
+				Act(TEXT("carry"), Rack[Focus].ToString());
+				if (bHad && Rules.BenchSlots().Num() > 0)
+				{
+					EnterParts();
+				}
+			}
 		}
 		else
 		{
@@ -650,7 +756,7 @@ bool UMIFrontEnd::Key(const FKey& K, bool bDown, bool bRepeat, bool bCtrl, bool 
 		return true;
 	}
 	// Reset build is a 0.6 s hold (R, gamepad Y), never a tap.
-	if (S == EMIFrontScreen::Workbench && (K == EKeys::R || K == EKeys::Gamepad_FaceButton_Top))
+	if ((S == EMIFrontScreen::Workbench || (S == EMIFrontScreen::Loadout && Pane == 2)) && (K == EKeys::R || K == EKeys::Gamepad_FaceButton_Top))
 	{
 		bResetDown = bDown;
 		return true;
@@ -679,7 +785,8 @@ bool UMIFrontEnd::Key(const FKey& K, bool bDown, bool bRepeat, bool bCtrl, bool 
 	{
 		if (S == EMIFrontScreen::Loadout)
 		{
-			if (bOnNext) { bOnNext = false; Pane = 0; }
+			if (Pane == 2) { Rules.StopPreview(); Pane = 1; bOnNext = false; }  // from the parts to the slots
+			else if (bOnNext) { bOnNext = false; Pane = 0; }
 			else if (Pane == 0) { Pane = 1; }
 			else { bOnNext = true; }
 			Focus = 0;
@@ -703,6 +810,11 @@ bool UMIFrontEnd::Key(const FKey& K, bool bDown, bool bRepeat, bool bCtrl, bool 
 	if (K == EKeys::Escape || K == EKeys::Gamepad_FaceButton_Right)
 	{
 		if (S == EMIFrontScreen::Home) return false;
+		if (S == EMIFrontScreen::Loadout && Pane == 2)
+		{
+			LeaveParts();  // Esc and B leave the parts panel for the card, the way back to the previous step is the next press
+			return true;
+		}
 		Act(TEXT("back"));
 		return true;
 	}
@@ -732,14 +844,25 @@ bool UMIFrontEnd::Key(const FKey& K, bool bDown, bool bRepeat, bool bCtrl, bool 
 				Act(TEXT("slot"), FString::Printf(TEXT("%d %s"), Slot, *Card.ToString()));
 				return true;
 			}
-			if (K == EKeys::E || K == EKeys::Gamepad_FaceButton_Top) { Act(TEXT("bench"), Card.ToString()); return true; }
+			if ((K == EKeys::E || K == EKeys::Gamepad_FaceButton_Top) && Rules.BenchSlots().Num() > 0) { Rules.FocusGun(Card); EnterParts(); return true; }
+		}
+		if (Pane == 2)
+		{
+			// The parts of the focused gun: Backspace and X take the part off (Factory), [ ] and LB RB change the slot.
+			if (K == EKeys::BackSpace || K == EKeys::Gamepad_FaceButton_Left) { Act(TEXT("fit"), TEXT("factory")); return true; }
+			if (K == EKeys::LeftBracket || K == EKeys::Gamepad_LeftShoulder) { Move(-1, 0); return true; }
+			if (K == EKeys::RightBracket || K == EKeys::Gamepad_RightShoulder) { Move(1, 0); return true; }
 		}
 		if (Pane == 1)
 		{
 			if (K == EKeys::Delete || K == EKeys::Gamepad_FaceButton_Left) { Act(TEXT("empty"), FString::FromInt(Focus + 1)); return true; }
 			if (K == EKeys::Gamepad_LeftShoulder) { Act(TEXT("swap"), FString::Printf(TEXT("%d %d"), Focus + 1, Focus)); return true; }
 			if (K == EKeys::Gamepad_RightShoulder) { Act(TEXT("swap"), FString::Printf(TEXT("%d %d"), Focus + 1, Focus + 2)); return true; }
-			if ((K == EKeys::E || K == EKeys::Gamepad_FaceButton_Top) && Rules.GetSetup().Guns.IsValidIndex(Focus)) { Act(TEXT("bench"), Rules.GetSetup().Guns[Focus].ToString()); return true; }
+			if ((K == EKeys::E || K == EKeys::Gamepad_FaceButton_Top) && Rules.GetSetup().Guns.IsValidIndex(Focus))
+			{
+				Rules.FocusGun(Rules.GetSetup().Guns[Focus]);
+				if (Rules.BenchSlots().Num() > 0) { EnterParts(); return true; }
+			}
 			if (K == EKeys::Gamepad_FaceButton_Top)
 			{
 				// Y on an empty slot: back to the rack to pick a gun for it (it did nothing, READY.md M7).
@@ -749,7 +872,7 @@ bool UMIFrontEnd::Key(const FKey& K, bool bDown, bool bRepeat, bool bCtrl, bool 
 				return true;
 			}
 		}
-		if (K == EKeys::Gamepad_LeftShoulder || K == EKeys::Gamepad_RightShoulder)
+		if ((K == EKeys::Gamepad_LeftShoulder || K == EKeys::Gamepad_RightShoulder) && Pane != 2)
 		{
 			Pane = 1 - Pane;  // LB / RB switch panes on a pad
 			bOnNext = false;
@@ -836,7 +959,7 @@ void UMIFrontEnd::Tick(double Dt)
 			bInputMode = true;
 		}
 	}
-	if (Rules.GetScreen() == EMIFrontScreen::Workbench)
+	if (Rules.GetScreen() == EMIFrontScreen::Workbench || (Rules.GetScreen() == EMIFrontScreen::Loadout && Pane == 2))
 	{
 		const double Before = Rules.GetResetHold();
 		if (Rules.HoldReset(Dt, bResetDown))
@@ -991,6 +1114,8 @@ void UMIFrontEnd::SyncStage(bool bForce)
 	}
 	const EMIFrontScreen S = Rules.GetScreen();
 	const FMIRunSetup& Set = Rules.GetSetup();
+	// The Loadout's column is wider (the parts panel stands beside the rack): the gun is framed in what is left of the stage.
+	Showroom->SetFreeLeft(S == EMIFrontScreen::Loadout ? 0.18 : AMIShowroom::FreeLeftDefault);
 	FName Gun;
 	FMIGunBuild Build;
 	FString Key = FMIFrontEndRules::ScreenName(S);
@@ -1004,6 +1129,11 @@ void UMIFrontEnd::SyncStage(bool bForce)
 	{
 		Gun = Rules.GetFocusGun().IsNone() && Set.Guns.Num() > 0 ? Set.Guns[0] : Rules.GetFocusGun();
 		if (const FMIGunBuild* B = Set.BuildOf(Gun)) Build = *B;
+		if (Gun == Rules.GetBenchGun())
+		{
+			Build = Rules.ShownBuild();  // the parts panel is on the screen: the part fitted or looked at is on the gun
+			if (Pane == 2) Key += Rules.GetBenchSlot().ToString();  // the camera goes to the slot only while the keys work the parts
+		}
 	}
 	else if (S == EMIFrontScreen::Crew)
 	{
@@ -1039,7 +1169,7 @@ void UMIFrontEnd::SyncStage(bool bForce)
 	Showroom->UseShot(AMIShowroom::EShot::Turntable);
 	Showroom->ShowGun(G);
 	FName Slot, Socket;
-	if (S == EMIFrontScreen::Workbench)
+	if (S == EMIFrontScreen::Workbench || (S == EMIFrontScreen::Loadout && Pane == 2 && Gun == Rules.GetBenchGun()))
 	{
 		Slot = Rules.GetBenchSlot();
 		const FMIGunEntry* Entry = Rules.GetData().FindGun(Gun);

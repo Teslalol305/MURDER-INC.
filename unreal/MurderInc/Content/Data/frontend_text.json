@@ -100,7 +100,14 @@
       },
       "noSlots": "No attachments",
       "devTag": "DEV",
-      "bag": "Long guns share one bag of rounds."
+      "bag": "Long guns share one bag of rounds.",
+      "selected": "Selected",
+      "parts": {
+        "kicker": "Attachments",
+        "reset": "Reset",
+        "kbm": "Click a slot, then a part. Keys: Right or E, Up / Down, Enter fits, Backspace takes off, Esc back.",
+        "pad": "D-pad right or Y, up / down, A fits, X takes off, B back."
+      }
     },
     "attachments": {
       "kicker": "On the bench",

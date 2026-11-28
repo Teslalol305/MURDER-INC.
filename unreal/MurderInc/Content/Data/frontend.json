@@ -151,7 +151,7 @@
     "about": "The 3D set behind the set-up screens (LOADOUT.md 2.10): a closed room spawned at run time high above the block, so the block's fog, sky light and sun do not reach it. Every value is a placeholder for the art pass.",
     "origin": [0, 0, 100000],
     "room": {
-      "size": [1200, 1200, 600],
+      "size": [2000, 2000, 600],
       "mesh": null,
       "material": null,
       "note": "a cyclorama room; engine cube walls until the art exists (status missing)"

@@ -603,6 +603,7 @@ void AMIShowroom::Tick(float DeltaSeconds)
 	const double TanH = FMath::Tan(FMath::DegreesToRadians(CamFov * 0.5));
 	const double TanV = TanH / Aspect;
 	// The aim point sits at the middle of the free part (X0); the gun's sphere must fit between its edges.
+	FreeLeft = FMath::IsNearlyEqual(FreeLeft, FreeLeftWant, 0.002) || bReducedMotion ? FreeLeftWant : FMath::FInterpTo(FreeLeft, FreeLeftWant, static_cast<float>(Dt), 8.f);
 	const double X0 = (FreeLeft + FreeRight) * 0.5;
 	const FVector O = Centre - AimPoint;
 	const double Ox = O | Right, Oy = O | Up, Oz = O | Fwd;

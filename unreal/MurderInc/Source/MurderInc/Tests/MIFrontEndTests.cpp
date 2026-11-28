@@ -219,6 +219,63 @@ bool FMIFrontendWalkTest::RunTest(const FString& Parameters)
 	return !HasAnyErrors();
 }
 
+// LOADOUT.md 2.6a: the parts of the focused gun are on the Loadout itself, no Workbench to open. The rules side: focusing
+// (or carrying) a gun makes it the bench gun on the Loadout, its first slot is the panel's slot, and a part fitted or
+// looked at there is the gun's build, without the screen changing.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIFrontendLoadoutPartsTest, "MurderInc.Frontend.LoadoutParts", MIFrontEndTestsPrivate::Flags)
+
+bool FMIFrontendLoadoutPartsTest::RunTest(const FString& Parameters)
+{
+	using namespace MIFrontEndTestsPrivate;
+	FFixture F;
+	if (!F.Load(*this))
+	{
+		return false;
+	}
+	const FMILoadoutResolver Resolver(F.Data, F.Config, F.Presentation);
+	FMIFrontEndRules R;
+	R.TextJson = F.Text;
+	R.ConfigJson = F.Config;
+	R.Init(&F.Data, F.Ready, &Resolver, F.Data.ParitySetup(TEXT("mission"), TEXT("boss"), TEXT("day")));
+	R.HitTheBlock();
+	R.Next();
+	TestEqual(TEXT("Loadout"), R.GetScreen(), EMIFrontScreen::Loadout);
+	// On arrival the focused gun (slot 1) is the bench gun, on its first slot.
+	TestEqual(TEXT("the focused gun is the bench gun"), R.GetBenchGun(), R.GetFocusGun());
+	TestEqual(TEXT("the CHOPPER's panel: optic first"), R.BenchSlots().IsValidIndex(0) ? R.BenchSlots()[0] : NAME_None, R.GetBenchSlot());
+	// Carrying the STICK focuses it: its six slots are in the panel, the screen is still the Loadout.
+	TestTrue(TEXT("carry STICK"), R.Carry(TEXT("stick")));
+	TestEqual(TEXT("still the Loadout"), R.GetScreen(), EMIFrontScreen::Loadout);
+	TestEqual(TEXT("the STICK is the bench gun"), R.GetBenchGun(), FName(TEXT("stick")));
+	TestEqual(TEXT("six slots in the panel"), R.BenchSlots().Num(), 6);
+	TestEqual(TEXT("its first slot is chosen"), R.GetBenchSlot(), R.BenchSlots()[0]);
+	// A look at a part is on the shown build, not on the fitted one; a fit is the gun's build.
+	R.ChooseBenchSlot(TEXT("optic"));
+	R.PreviewPart(TEXT("scope"));
+	TestEqual(TEXT("the look is on the shown build"), R.ShownBuild().Parts.FindRef(TEXT("optic")), FName(TEXT("scope")));
+	TestNotEqual(TEXT("and not on the fitted one"), R.GetSetup().PartIn(TEXT("stick"), TEXT("optic")), FName(TEXT("scope")));
+	R.Fit(TEXT("scope"));
+	TestEqual(TEXT("fitted on the Loadout"), R.GetSetup().PartIn(TEXT("stick"), TEXT("optic")), FName(TEXT("scope")));
+	TestEqual(TEXT("still the Loadout after a fit"), R.GetScreen(), EMIFrontScreen::Loadout);
+	// Another card: its parts replace the panel's, the look at the STICK's part ends, the STICK keeps its scope.
+	R.PreviewPart(TEXT("irons"));
+	R.FocusGun(TEXT("chopper"));
+	TestEqual(TEXT("the CHOPPER is the bench gun"), R.GetBenchGun(), FName(TEXT("chopper")));
+	TestFalse(TEXT("no look carried over to the next gun"), R.IsPreviewing());
+	TestEqual(TEXT("the STICK keeps its scope"), R.GetSetup().PartIn(TEXT("stick"), TEXT("optic")), FName(TEXT("scope")));
+	TestEqual(TEXT("CHOPPER: optic, muzzle, underbarrel"), R.BenchSlots(), TArray<FName>{TEXT("optic"), TEXT("muzzle"), TEXT("underbarrel")});
+	// Back to the STICK: its slot is its first again (the panel opens each gun at its first slot).
+	R.FocusGun(TEXT("stick"));
+	TestEqual(TEXT("the STICK's panel opens on its first slot"), R.GetBenchSlot(), R.BenchSlots()[0]);
+	// The Workbench screen is still there for the console and the tests, and Done comes back to the Loadout.
+	R.OpenWorkbench(TEXT("stick"));
+	TestEqual(TEXT("Workbench"), R.GetScreen(), EMIFrontScreen::Workbench);
+	R.Next();
+	TestEqual(TEXT("Done: the Loadout"), R.GetScreen(), EMIFrontScreen::Loadout);
+	TestEqual(TEXT("the bench gun follows the focus again"), R.GetBenchGun(), R.GetFocusGun());
+	return !HasAnyErrors();
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMISaveSetupRoundTripTest, "MurderInc.Save.SetupRoundTrip", MIFrontEndTestsPrivate::Flags)
 
 bool FMISaveSetupRoundTripTest::RunTest(const FString& Parameters)

@@ -269,7 +269,7 @@ When the choice changes, the arms swap behind a 0.15 s dip to black.
   - six stat bars computed from the gun's *current build*;
   - the magazine (`∞` for the NINE) and `SEMI` for a semi-only gun;
   - the number of offered attachment slots, or `No attachments`;
-  - a wrench button that opens the Workbench;
+  - `Selected` on the card whose attachments are in the panel beside the rack (2.6a);
   - `NEW` until the card has been focused once (save `seen`).
 
   A carried gun shows `Carried · slot n` and stays selectable: selecting it focuses its slot.
@@ -289,7 +289,7 @@ gap (emptying slot 2 of three moves slot 3 up). At zero guns, Next is disabled w
 | Put in a given slot | drag the card onto the slot | 1–4 on the focused card | A on a slot, then A on a card |
 | Reorder | drag a slot onto another (they swap) | Shift + Up / Down on a slot | LB / RB on a slot |
 | Empty a slot | right-click the slot (right-click elsewhere does nothing) | Delete | X |
-| Attachments | the wrench, or double-click | E | Y |
+| Attachments | they are on the screen, beside the rack (2.6a): click a slot, then a part | Right from the last card of a row, or E, or Enter on a gun already carried | D-pad right from the last card, or Y |
 | Turn, zoom | drag, wheel | none | right stick, LT / RT |
 | Switch panes | none | Tab (rack, slots, Next); Up from the first slot returns to the rack | LB / RB on the rack; on the slots LB / RB reorder, so D-pad up from the first slot (or Y on an empty slot) returns to the rack |
 | Next / Back | buttons | Enter on Next (Tab or Down to it) / Esc | Start, or D-pad down past the last row then A / B |
@@ -306,9 +306,56 @@ gap (emptying slot 2 of three moves slot 3 up). At zero guns, Next is disabled w
 | Aimed | 1 − (spread.ads − 0.0005) / 0.0035 |
 | Hip fire | 1 − (spread.hip − 0.006) / 0.010 |
 
+### 2.6a Attachments on the Loadout (as built, release 6.1)
+
+The owner, on version 6: "when you click a gun the option for attachments should show up in the frame with it, so users
+can click weapon, add attachments, then navigate to the game". The attachments no longer sit behind a second screen
+(2.6, which a wrench button or E opened and which was hard to find). The Loadout is one screen with the rack, the four
+slots and the focused gun's attachments side by side; the 3D gun on the right shows every look and every fit at once.
+
+**Layout (1080p units, the same at 1920 x 1080 and 1280 x 720):** the controls column is 58 % of the width on the Loadout
+(40 % on the other screens): left, the heading, the class tabs, the rack (three cards a row, scrolling) and the strip of
+the four carried slots with the melee line, as before; right, a panel 370 units wide with `Attachments`, the focused
+gun's name, a `Reset` button, one chip per offered slot (`Optic`, `Muzzle`, `Underbarrel`, `Laser`, `Magazine`, `Stock`, as
+the gun has them), the options of the chosen slot (`Factory` where the slot is not required, then each part with its
+blurb, `Fitted` on the one in use), the effect lines of the part in focus with the six stat bars (ghost: now, fill: with
+the part), and a line naming the keys of the device in use. A gun with no offered slot shows `frontend.attachments.noPartsYet`
+and its note in the same place. The stage's free part (`AMIShowroom::SetFreeLeft`) starts at 0.18 on the Loadout (-0.14
+elsewhere), eased, so the whole gun is framed in what the column leaves; the narrower free part puts the camera further
+from a long gun, so the stage room is 2000 x 2000 x 600 (`frontend.json stage.room.size`, it was 1200 x 1200: the camera
+stood outside its wall and filmed the wall's far side). Text is never below 14 (`MinText`).
+
+**Which gun:** the focused card, always (`FMIFrontEndRules::FocusGun` sets the bench gun on the Loadout, with its first
+offered slot chosen): an arrow, a click on a card, a click on a carried slot (it focuses that slot's gun) all change the
+panel together with the stage. The card is marked `Selected`. Nothing needs opening and the screen never changes.
+
+**Input** (a fourth pane of the Loadout, `UMIFrontEnd::Pane == 2`; Tab still cycles rack, slots, Next):
+
+| Input | Mouse | Keyboard | Gamepad |
+|---|---|---|---|
+| Enter the panel | click a slot chip or an option (the keys then work there) | Right from the last card of a row, E, or Enter on a gun already carried | D-pad right from the last card, Y |
+| Slot | click a chip | Left / Right (Left from the first slot leaves the panel), [ ] | D-pad left / right, LB / RB |
+| Option | hover looks, click fits | Up / Down look (Up from the first leaves the panel), Enter or Space fits | D-pad up / down look, A fits |
+| Factory part | click `Factory` | Backspace | X |
+| Reset build | the `Reset` button | hold R 0.6 s | hold Y 0.6 s |
+| Leave the panel | click a card | Esc | B (a second Esc or B is Back, as on every screen) |
+
+**3D:** while the keys work the panel (Pane 2) the camera goes to the chosen slot's mount as on the Workbench (2.6); with
+the keys on the rack the whole gun turns slowly. A part looked at or fitted is on the gun at once.
+
+**Flicker** (the owner's, DECISIONS.md 2026-11-28): a part fitted or looked at builds the screens again. A card, slot, option or chip
+built under the pointer is given the hover look at once (`SMIFrontEnd::PointerOver`), because Slate hovers a new button a frame or two
+after its first paint and the card flipped plain and back; and every text that wraps is given the width it wraps at (`Txt(...,
+bWrap, WrapAt)`), never `AutoWrapText`, which measures at its last paint's width, so a new one was drawn once on one line.
+`MurderInc.Frontend.FirstLayout` fails when a text of the Loadout wraps by itself. Home, Crew, Block & Style and the Briefing still
+use the old way for their few wrapped lines (they are built again on a key, not on every hover).
+
+The Workbench screen (2.6) stays for the console (`MIMenu fe bench <gun>`) and the tests that drive it; no control of the
+Loadout opens it.
+
 ### 2.6 Workbench (attachments)
 
-Opened from the rack for one gun. It edits that gun's build whether or not the gun is carried. Builds are kept per gun
+Opened by `Act("bench")` (the console and the tests) for one gun; the player no longer needs it (2.6a). It edits that gun's build whether or not the gun is carried. Builds are kept per gun
 (7).
 
 **Shows:**

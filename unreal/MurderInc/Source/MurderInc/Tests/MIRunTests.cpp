@@ -38,6 +38,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "UI/SMIFrontEnd.h"
 #include "Widgets/Input/SButton.h"
+#include "Widgets/Text/STextBlock.h"
 
 #if WITH_AUTOMATION_TESTS
 
@@ -832,6 +833,192 @@ bool FMIFrontendSteadyTest::RunTest(const FString& Parameters)
 	// The new button was never entered (the pointer left during the rebuild): a few frames later the preview ends.
 	for (int32 Frame = 0; Frame < 6; ++Frame) SlateFrame(F, *Widget);
 	TestFalse(TEXT("a pointer gone during a rebuild still ends the preview"), F->GetRules().IsPreviewing());
+	return !HasAnyErrors();
+}
+
+// LOADOUT.md 2.6a: a picked gun's parts are on the Loadout itself, beside the rack, and work by mouse, keyboard and pad:
+// nothing is behind E, the screen never changes. The options are in the widget tree of the Loadout, the keys act on them
+// (Right from the last card or E enters the panel, Up and Down look at a part, Enter fits, Backspace takes it off, Esc
+// leaves the panel and only then the screen), and so do the pad's Y, D-pad, A, X and B.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIFrontendLoadoutPartsWorldTest, "MurderInc.Frontend.LoadoutPartsWorld", MITest::Flags)
+
+bool FMIFrontendLoadoutPartsWorldTest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	FRunWorld W;
+	UMIFrontEnd* F = BootTitle(*this, W);
+	if (!F || !TestTrue(TEXT("Slate is up"), FSlateApplication::IsInitialized()) || !TestNotNull(TEXT("a renderer measures text"), FSlateApplication::Get().GetRenderer()))
+	{
+		return false;
+	}
+	TSharedPtr<SMIFrontEnd> Widget = F->GetWidget();
+	if (!TestTrue(TEXT("the set-up widget"), Widget.IsValid()))
+	{
+		return false;
+	}
+	F->Act(TEXT("gearup"));
+	F->Act(TEXT("next"));
+	Expect(*this, F, EMIFrontScreen::Loadout, TEXT("Loadout"));
+	FMIFrontEndRules& R = F->GetRules();
+	// A gun with parts to choose from.
+	FName Gun;
+	for (const FName G : R.GetSetup().Guns)
+	{
+		F->Act(TEXT("carry"), G.ToString());
+		if (R.GetBenchSlot() != NAME_None && R.BenchOptions(R.GetBenchSlot()).Num() > 1)
+		{
+			Gun = G;
+			break;
+		}
+	}
+	if (Gun.IsNone())
+	{
+		AddInfo(TEXT("No carried gun has parts to choose from here (no gun art installed): nothing to check."));
+		return true;
+	}
+	// (1) The parts are on the Loadout, not behind a screen: the first option's button is in the widget tree.
+	SlateFrame(F, *Widget);
+	Expect(*this, F, EMIFrontScreen::Loadout, TEXT("picking a gun keeps the Loadout"));
+	TestEqual(TEXT("the picked gun's parts are the panel's"), R.GetBenchGun(), Gun);
+	const TArray<FName> Options = R.BenchOptions(R.GetBenchSlot());
+	const auto TagOf = [](FName Part) { return FName(*(TEXT("MIOption.") + (Part.IsNone() ? FString(TEXT("factory")) : Part.ToString()))); };
+	TestTrue(TEXT("the first option is on the Loadout"), FindTagged(Widget.ToSharedRef(), TagOf(Options[0])).IsValid());
+	TestTrue(TEXT("and the last"), FindTagged(Widget.ToSharedRef(), TagOf(Options.Last())).IsValid());
+	// (2) The keyboard: E (or Right from the last card) enters the panel, Down looks, Enter fits, Esc leaves it.
+	F->Act(TEXT("carry"), Gun.ToString());
+	TestEqual(TEXT("a picked card has the rack's keys"), F->Pane, 0);
+	Press(*this, W, F, EKeys::E);
+	TestEqual(TEXT("E: the parts panel"), F->Pane, 2);
+	Expect(*this, F, EMIFrontScreen::Loadout, TEXT("E does not open another screen"));
+	const FName Slot = R.GetBenchSlot();
+	Press(*this, W, F, EKeys::Down);
+	const FName Looked = R.BenchOptions(Slot)[FMath::Min(F->Focus, R.BenchOptions(Slot).Num() - 1)];
+	TestTrue(TEXT("Down: a look at the next option"), R.IsPreviewing() && R.GetPreviewed() == Looked);
+	TestTrue(TEXT("the look is on the stage's build"), R.ShownBuild().Parts.FindRef(Slot) == Looked);
+	Press(*this, W, F, EKeys::Enter);
+	TestEqual(TEXT("Enter: fitted"), R.FittedIn(Slot), Looked);
+	TestFalse(TEXT("a fit ends the look"), R.IsPreviewing());
+	if (R.BenchOptions(Slot).Contains(NAME_None))
+	{
+		Press(*this, W, F, EKeys::BackSpace);
+		TestEqual(TEXT("Backspace: the factory part"), R.FittedIn(Slot), FName(NAME_None));
+	}
+	Press(*this, W, F, EKeys::Escape);
+	Expect(*this, F, EMIFrontScreen::Loadout, TEXT("Esc in the panel stays on the Loadout"));
+	TestEqual(TEXT("Esc: back on the card"), F->Pane, 0);
+	// Right from the last card of the rack reaches the panel too.
+	{
+		const TArray<FName> Rack = R.Rack(F->RackFilter);
+		F->Act(TEXT("carry"), Rack.Last().ToString());
+		if (R.BenchSlots().Num() > 0)
+		{
+			Press(*this, W, F, EKeys::Right);
+			TestEqual(TEXT("Right from the last card: the parts panel"), F->Pane, 2);
+			Press(*this, W, F, EKeys::Left);
+			TestEqual(TEXT("Left from the first slot: the card"), F->Pane, 0);
+		}
+		F->Act(TEXT("carry"), Gun.ToString());
+	}
+	// (3) The mouse: a slot chip and an option, no pane to enter.
+	{
+		const TArray<FName> Slots = R.BenchSlots();
+		const FName Next = Slots.IsValidIndex(1) ? Slots[1] : Slots[0];
+		F->Act(TEXT("benchslot"), Next.ToString());
+		TestEqual(TEXT("the slot chip chooses the slot"), R.GetBenchSlot(), Next);
+		const TArray<FName> Opts = R.BenchOptions(Next);
+		const FName Pick = Opts.Last();
+		F->Act(TEXT("fit"), Pick.IsNone() ? TEXT("factory") : Pick.ToString());
+		TestEqual(TEXT("a click on an option fits it"), R.FittedIn(Next), Pick);
+		Expect(*this, F, EMIFrontScreen::Loadout, TEXT("the mouse stays on the Loadout"));
+	}
+	// (4) The pad: Y to the panel, D-pad Down looks, A fits, B back to the card, B again leaves the screen.
+	F->Act(TEXT("carry"), Gun.ToString());
+	R.ChooseBenchSlot(R.BenchSlots()[0]);  // the first slot, with its first option fitted: Down has an option to look at
+	R.Fit(R.BenchOptions(R.GetBenchSlot())[0]);
+	Press(*this, W, F, EKeys::Gamepad_FaceButton_Top);
+	TestEqual(TEXT("Y: the parts panel"), F->Pane, 2);
+	Press(*this, W, F, EKeys::Gamepad_DPad_Down);
+	TestTrue(TEXT("D-pad down: a look"), R.IsPreviewing());
+	const FName PadSlot = R.GetBenchSlot();
+	const FName PadLook = R.GetPreviewed();
+	Press(*this, W, F, EKeys::Gamepad_FaceButton_Bottom);
+	TestEqual(TEXT("A: fitted"), R.FittedIn(PadSlot), PadLook);
+	Press(*this, W, F, EKeys::Gamepad_FaceButton_Right);
+	TestEqual(TEXT("B: back on the card"), F->Pane, 0);
+	Expect(*this, F, EMIFrontScreen::Loadout, TEXT("B in the panel stays on the Loadout"));
+	Press(*this, W, F, EKeys::Gamepad_FaceButton_Right);
+	Expect(*this, F, EMIFrontScreen::Crew, TEXT("B on the card: the step before"));
+	return !HasAnyErrors();
+}
+
+// The stream's flicker when parts are fitted (docs/unreal/DECISIONS.md 2026-11-28): every fit and every look at a part rebuilds the
+// Loadout, and for ONE frame the new option cards were drawn with their wrapped text on one line, clipped, the effect lines and the
+// bars missing (a thumbnail of that single frame in the stream shows it: Red dot's blurb cut to "Gets on target fast, a little").
+// An auto-wrapping text block (STextBlock AutoWrapText: the engine's own header warns "the wrapped size will be computed at least
+// one frame late") measures itself at the width of its last paint, and a new one has none. A text that wraps at a width it is
+// given measures right in the layout pass before its first paint. A headless test never paints, so it cannot see the frame: it
+// asks the widget tree instead. No text of the Loadout (or of its parts panel) may be an auto-wrapping one.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIFrontendFirstLayoutTest, "MurderInc.Frontend.FirstLayout", MITest::Flags)
+
+namespace MIRunTestsPrivate
+{
+	/** Texts under Root that wrap by themselves (AutoWrapText), and how many texts there are. */
+	void CountAutoWrap(const TSharedRef<SWidget>& Root, int32& AutoWrapped, int32& Texts, FString& First)
+	{
+		if (Root->GetType() == FName(TEXT("STextBlock")))
+		{
+			++Texts;
+			const STextBlock& T = static_cast<const STextBlock&>(Root.Get());
+			if (T.GetAutoWrapText())
+			{
+				++AutoWrapped;
+				if (First.IsEmpty()) First = T.GetText().ToString().Left(40);
+			}
+		}
+		FChildren* Children = Root->GetChildren();
+		for (int32 I = 0; Children && I < Children->Num(); ++I)
+		{
+			CountAutoWrap(Children->GetChildAt(I), AutoWrapped, Texts, First);
+		}
+	}
+}
+
+bool FMIFrontendFirstLayoutTest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	FRunWorld W;
+	UMIFrontEnd* F = BootTitle(*this, W);
+	if (!F || !TestTrue(TEXT("Slate is up"), FSlateApplication::IsInitialized()))
+	{
+		return false;
+	}
+	TSharedPtr<SMIFrontEnd> Widget = F->GetWidget();
+	if (!TestTrue(TEXT("the set-up widget"), Widget.IsValid()))
+	{
+		return false;
+	}
+	F->Act(TEXT("gearup"));
+	F->Act(TEXT("next"));
+	FMIFrontEndRules& R = F->GetRules();
+	// A gun with parts: its options, the effect lines of a part looked at, the keys line.
+	for (const FName G : R.GetSetup().Guns)
+	{
+		F->Act(TEXT("carry"), G.ToString());
+		if (R.GetBenchSlot() != NAME_None && R.BenchOptions(R.GetBenchSlot()).Num() > 1)
+		{
+			break;
+		}
+	}
+	if (R.GetBenchSlot() != NAME_None)
+	{
+		F->Act(TEXT("preview"), R.BenchOptions(R.GetBenchSlot()).Last().IsNone() ? FString(TEXT("factory")) : R.BenchOptions(R.GetBenchSlot()).Last().ToString());
+	}
+	SlateFrame(F, *Widget);
+	int32 Wrapped = 0, Texts = 0;
+	FString First;
+	CountAutoWrap(Widget.ToSharedRef(), Wrapped, Texts, First);
+	TestTrue(TEXT("the Loadout draws texts"), Texts > 20);
+	TestEqual(FString::Printf(TEXT("no text of the Loadout wraps by itself (first: '%s'): it would be drawn on one line in the first frame after each rebuild"), *First), Wrapped, 0);
 	return !HasAnyErrors();
 }
 

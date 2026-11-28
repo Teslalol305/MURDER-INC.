@@ -54,7 +54,7 @@ public:
 	/** Press only or release only (for chords such as View+Start and the 0.6 s reset hold). */
 	bool SendKey(const FKey& Key, bool bDown, bool bCtrl = false, bool bShift = false);
 
-	/** The focused row or card of the current screen, and the pane on Loadout (0 rack, 1 slots). */
+	/** The focused row or card of the current screen, and the pane on Loadout (0 rack, 1 slots, 2 the focused gun's parts). */
 	int32 Focus = 0;
 	int32 Pane = 0;
 	/** The bottom bar's Next (Done, Hit the block) has the focus: Tab, or Down past the last row, reaches it. */
@@ -105,6 +105,9 @@ private:
 	void Remember();
 	void StartRun();
 	void Move(int32 Dx, int32 Dy);
+	/** The Loadout's parts panel (Pane 2) takes the keys, for the focused gun, or gives them back to its card. */
+	void EnterParts();
+	void LeaveParts();
 	void Activate();
 	void WriteSetting(FName Which, FName Value);
 	void AfterScreenChange();

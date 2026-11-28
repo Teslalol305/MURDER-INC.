@@ -98,6 +98,10 @@ void FMIFrontEndRules::Go(EMIFrontScreen S)
 	{
 		FocusedGun = Setup.Guns[0];
 	}
+	if (S == EMIFrontScreen::Loadout)
+	{
+		SyncBench();  // the parts panel of the Loadout builds the focused gun
+	}
 }
 
 EMIFrontRequest FMIFrontEndRules::HitTheBlock()
@@ -277,7 +281,7 @@ bool FMIFrontEndRules::Carry(FName Gun)
 		return false;
 	}
 	Seen(Gun);
-	FocusedGun = Gun;
+	FocusGun(Gun);
 	const int32 Have = SlotOf(Gun);
 	if (Have != INDEX_NONE)
 	{
@@ -344,6 +348,29 @@ void FMIFrontEndRules::FocusGun(FName Gun)
 {
 	FocusedGun = Gun;
 	Seen(Gun);
+	if (Screen == EMIFrontScreen::Loadout)
+	{
+		SyncBench();
+	}
+}
+
+void FMIFrontEndRules::SyncBench()
+{
+	if (FocusedGun.IsNone() || !Data->FindGun(FocusedGun))
+	{
+		return;
+	}
+	if (BenchGun != FocusedGun)
+	{
+		BenchGun = FocusedGun;
+		bPreview = false;  // a look at a part of the gun before is not the next gun's
+		BenchSlot = NAME_None;
+	}
+	const TArray<FName> Slots = BenchSlots();
+	if (!Slots.Contains(BenchSlot))
+	{
+		BenchSlot = Slots.Num() > 0 ? Slots[0] : NAME_None;
+	}
 }
 
 void FMIFrontEndRules::OpenWorkbench(FName Gun)

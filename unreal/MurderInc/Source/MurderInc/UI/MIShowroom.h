@@ -51,7 +51,12 @@ public:
 
 	/** Where the turntable camera frames: the screen part right of the controls column (normalised device x, -1..1),
 	 *  and the vertical half-extent; the whole gun stays inside it. */
-	static constexpr double FreeLeft = -0.14, FreeRight = 0.94, FreeHalfHeight = 0.80;
+	static constexpr double FreeRight = 0.94, FreeHalfHeight = 0.80;
+	/** The left edge of that part: -0.14 beside the 40 % column, further right where a screen widens the column (the
+	 *  Loadout's parts panel). The camera eases to a new edge, so a screen change does not jump the frame. */
+	static constexpr double FreeLeftDefault = -0.14;
+	void SetFreeLeft(double X) { FreeLeftWant = X; }
+	double GetFreeLeft() const { return FreeLeft; }
 	/** The point the camera aims at (stage space) and the stage-space bounding sphere of the shown gun, for tests. */
 	FVector GetAimPoint() const { return AimPoint; }
 	FSphere GetGunSphere() const;
@@ -110,6 +115,7 @@ private:
 	double SinceTouch = 1e9;
 	double Spin = 18.0, IdleAfter = 3.0, DragK = 0.35, StickK = 120.0, PitchMin = -25.0, PitchMax = 35.0, ZoomMin = 0.65, ZoomMax = 1.6, ZoomStep = 0.1;
 	double FocusSecs = 0.4;
+	double FreeLeft = FreeLeftDefault, FreeLeftWant = FreeLeftDefault;
 	FVector CamFrom = FVector(-110, -20, 115), CamTo = FVector(0, 0, 95);
 	double CamFov = 30.0;
 	FVector FocusOffset = FVector::ZeroVector, FocusFrom = FVector::ZeroVector, FocusTo = FVector::ZeroVector;

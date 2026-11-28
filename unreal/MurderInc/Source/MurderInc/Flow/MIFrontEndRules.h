@@ -100,11 +100,16 @@ public:
 	void EmptySlot(int32 Slot);
 	void SelectSlot(int32 Slot) { SelectedSlot = Setup.Guns.IsValidIndex(Slot) ? Slot : INDEX_NONE; }
 	int32 GetSelectedSlot() const { return SelectedSlot; }
+	/** The gun the Loadout shows and builds: its attachments are on the screen with it (LOADOUT.md 2.6a). On the Loadout
+	 *  focusing a gun also makes it the bench gun (the slots of its parts panel, its fitted build). */
 	void FocusGun(FName Gun);
 	FName GetFocusGun() const { return FocusedGun; }
 	bool IsNew(FName Id) const { return !Setup.Seen.Contains(Id); }
 	/** Opens the Workbench for a gun (carried or not). */
 	void OpenWorkbench(FName Gun);
+	/** The bench gun, slot and options of the parts panel on the Loadout, for the focused gun: the same state the
+	 *  Workbench screen uses, without leaving the Loadout. */
+	void SyncBench();
 
 	// ---- Workbench --------------------------------------------------------------------------------------
 	FName GetBenchGun() const { return BenchGun; }

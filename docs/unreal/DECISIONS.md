@@ -753,3 +753,44 @@ it off until the game flow applies the settings. `MurderInc.Assist.Data`, `.Math
   - MurderInc is now **Version 6**, which the project link streams. Versions 4 and 5 are kept.
   - Stream check from the box: the title menu, CLICK TO PLAY, the Crew screen and the Loadout screen (all five guns, attachments) render and take input.
   - Clicking through the stream from the box's software-rendered browser lands in the wrong place, so the in-mission play check is left to a person playing on a real browser.
+
+## 2026-11-28: attachments are on the Loadout beside the rack; the flicker was wrapped text drawn on one line (owner, v6 on E3DS)
+
+**Owner:** "the screen flickers when adding attachments to weapons. It's also difficult to navigate to the attachment options. When
+you click a gun the option for attachments should show up in the frame with it, so users can click weapon, add attachments, then
+navigate to the game."
+
+**Decided:** the Loadout is one screen: the rack and the four slots on the left, the focused gun's attachments in a panel beside them
+(slot chips, the options of the slot, the effect lines and six bars of the part in focus, Reset, the keys of the device in use),
+the 3D gun on the right showing every look and fit. The picked gun is marked `Selected`. Nothing is behind E: Right from the last
+card, E, or Enter on a carried gun enter the panel by keyboard (D-pad right or Y on a pad), a click works it directly. The Workbench
+screen stays for the console (`MIMenu fe bench <gun>`) and the tests; no control opens it. LOADOUT.md 2.6a.
+
+**The flicker, found by measurement.** Reproduced in the Shipping game at 1920 x 1080 (-sm5) through the stream with the viewer script
+`tools/box/cloud/loadout-flicker.txt` and `rtcinput.py --trace` (mean level of every received frame; the same script plays on the old and
+the new screens): at every fit, every look at a part and every part taken off, the mean level drops by 1 to 1.5 (2 to 3 %) for one or two
+frames and comes back (13 such blinks in the 65-second script; a blink is a level that jumps 0.5 or more and returns within three frames).
+Thumbnails of the frames (`--thumbs-every 0.04`) show where: the stage is the same level in every frame (the right 40 % of the picture,
+55.4 in all of them), the blink is in the controls, and in the first run one frame shows the options panel half laid out. Two causes, both
+in how the screens are built again at every part change (`UMIFrontEnd::Tick` builds them on the game thread, before Slate's frame):
+
+1. The button under the pointer is replaced by a new one, and Slate gives a new button its hover a frame or two after its first paint,
+   so the card the pointer rests on (the player has just clicked it) is drawn plain for those frames and then hovered again: a flip at
+   every rebuild. The viewer's pointer rests on the CHOPPER's card; the card's region is 37 then 33 then 37 in three frames. Fix:
+   `SMIFrontEnd::PointerOver` (the last layout of the tracked buttons against the cursor) gives a card, slot, option or chip built under
+   the pointer the hover look at once (`ButtonStyle(..., bHoverLook)`); its end (`OnUnhovered`) builds the screen again with the plain look.
+2. Every text that wraps was `AutoWrapText`, which measures itself at the width of its last paint; a new one has none and was drawn once
+   on one line, clipped (the first run's thumbnail: Red dot's blurb cut to "Gets on target fast, a little", the effect lines and bars
+   missing). The engine's header says "the wrapped size will be computed at least one frame late". Fix: every wrapped text of the
+   Loadout is given its width (`Txt(..., WrapAt)`). `MurderInc.Frontend.FirstLayout` fails on the old code (26 auto-wrapping texts).
+
+Result, same script, same package otherwise: blinks 13 (v6 screens), 12 (inline panel, text fix only), 2 (both fixes), and the 2 left are on
+Home, before the Loadout, none at a fit, a look or a removal.
+
+**What was suspected and is NOT the cause** (measured, kept out of the change): the 3D stage. The same package run with the stage's old
+behaviour on and off (a camera cut marked at every part change, the whole gun built again at every change, the jump to a mount's side)
+gave 11 to 15 blinks each, all three on or all three off alike. Those three stage changes were taken out again.
+
+**Also changed:** the stage room is 2000 x 2000 x 600 (was 1200): the Loadout column is 58 % wide, the gun is framed in the part
+the column leaves, a long gun with parts put the camera outside the room's wall. The Loadout is wider only on the Loadout; the
+free part of the stage eases between screens (`AMIShowroom::SetFreeLeft`).

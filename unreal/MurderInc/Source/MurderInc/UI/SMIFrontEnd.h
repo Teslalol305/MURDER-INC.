@@ -50,12 +50,21 @@ private:
 	void EndHover();
 	TSharedRef<SWidget> Frame(TSharedRef<SWidget> Body, bool bWideRight);
 	TSharedRef<SWidget> StepStrip();
-	TSharedRef<SWidget> Heading(const FString& Kicker, const FString& Title);
+	TSharedRef<SWidget> Heading(const FString& Kicker, const FString& Title, float Width = 0.f);
 	TSharedRef<SWidget> BottomBar();
 	TSharedRef<SWidget> Home();
 	TSharedRef<SWidget> Crew();
 	TSharedRef<SWidget> Loadout();
 	TSharedRef<SWidget> Workbench();
+	/** The Loadout's parts panel: the focused gun's slots and their options, beside the rack (LOADOUT.md 2.6a). */
+	TSharedRef<SWidget> PartsPanel();
+	/** The share of the width the controls column takes on the screen being built (the Loadout's is wider). */
+	float ColumnNow() const;
+	/** The pointer rests on the button of this key, by where its last layout put it. A screen built again replaces the button under the
+	 *  pointer, and Slate gives the new one its hover a frame or two after its first paint: a card or chip built meanwhile is given
+	 *  the hover look at once, so it does not flip plain and back at every fit (the blink of the stream, DECISIONS.md 2026-11-28). */
+	bool PointerOver(const FString& Key) const;
+	void TrackHover(const FString& Key, const TSharedRef<SWidget>& W);
 	TSharedRef<SWidget> Where();
 	TSharedRef<SWidget> Briefing();
 	TSharedRef<SWidget> GunCard(FName Gun, bool bFocused);
@@ -70,6 +79,9 @@ private:
 	/** The scroll box of the screen built last (the column, or the rack's) and the control that has the focus there. */
 	TSharedPtr<class SScrollBox> Scroller;
 	TSharedPtr<SWidget> FocusedWidget;
+	/** The parts panel's scroll box and its focused option (the panel scrolls on its own, the rack's scroll box is Scroller). */
+	TSharedPtr<class SScrollBox> PartsScroller;
+	TSharedPtr<SWidget> PartsFocused;
 	/** Screen, pane and focus of the last build: the focused control is scrolled into view only when it changes. */
 	FString FocusKey;
 	/** The pointer rests on a Workbench option: its part, the option button of the current build, ticks since the
@@ -77,6 +89,9 @@ private:
 	bool bHoverOn = false;
 	FString HoverArg;
 	TMap<FString, TWeakPtr<SWidget>> OptionButtons;
+	/** The buttons of this build that can rest under the pointer, and where each stood after its layout. */
+	TMap<FString, TWeakPtr<SWidget>> HoverWidgets;
+	TMap<FString, FGeometry> HoverGeo;
 	/** The rack's gun cards by gun: a card is built again only when what it shows changed (its signature), not on every
 	 *  rebuild of the screen (a Loadout rebuild built six cards of about 40 widgets each for every key press). */
 	TMap<FName, TPair<FString, TSharedPtr<SWidget>>> CardCache;
