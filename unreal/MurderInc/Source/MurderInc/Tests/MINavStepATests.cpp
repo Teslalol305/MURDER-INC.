@@ -152,12 +152,12 @@ namespace MINavStepAPrivate
 	{
 		OutSightCells = 0;
 		FMIBoxWorld& W = M.World;
-		for (double X = GoonPos.X - 26.0; X <= GoonPos.X + 26.0; X += 3.0)
+		for (double X = GoonPos.X - 40.0; X <= GoonPos.X + 40.0; X += 3.0)
 		{
-			for (double Z = GoonPos.Z - 26.0; Z <= GoonPos.Z + 26.0; Z += 3.0)
+			for (double Z = GoonPos.Z - 40.0; Z <= GoonPos.Z + 40.0; Z += 3.0)
 			{
 				const double D = FVector::Dist2D(FVector(X, 0, Z), GoonPos);
-				if (D < 6.0 || D > 26.0 || !W.IsWalkable(X, Z, TargetLayer))
+				if (D < 6.0 || D > 40.0 || !W.IsWalkable(X, Z, TargetLayer))
 				{
 					continue;
 				}

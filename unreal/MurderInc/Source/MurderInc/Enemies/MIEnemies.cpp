@@ -1051,10 +1051,10 @@ int32 FMIEnemyField::AddFiringCells(int32 N, const FMIEnemy& E, const FVector& T
 	}
 	// Where he stands, then a 2 m grid around the seed (a parapet over the player), then random cells over the whole disc
 	// around the target: a shot at a body many metres up or down needs room to stand back from the wall that hides it.
-	const double Spread = FMath::Min(Range, T.ShotRange) * 0.85;
+	const double Spread = FMath::Min(Range, Tune.Ai.SightRange) * 0.85;
 	auto TryCell = [&](const FVector& P)
 	{
-		if (N >= MaxCandidates || Hypot(P.X - E.Pos.X, P.Z - E.Pos.Z) > Range || Hypot(P.X - TargetPos.X, P.Z - TargetPos.Z) > T.ShotRange)
+		if (N >= MaxCandidates || Hypot(P.X - E.Pos.X, P.Z - E.Pos.Z) > Range || Hypot(P.X - TargetPos.X, P.Z - TargetPos.Z) > Tune.Ai.SightRange * 0.95)
 		{
 			return;
 		}
