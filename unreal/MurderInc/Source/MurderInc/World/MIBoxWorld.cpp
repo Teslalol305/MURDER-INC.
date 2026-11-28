@@ -28,6 +28,14 @@ void FMIBoxWorld::Reset(const FMIBounds& InBounds, const FMIRng& Root)
 	Bounds.MinZ = FMath::Min(InBounds.MinZ, InBounds.MaxZ);
 	Bounds.MaxZ = FMath::Max(InBounds.MinZ, InBounds.MaxZ);
 	NavRng = Root.Fork(TEXT("nav"));
+	Spec = FMINavSpec();
+	bNavDirty = true;
+	++Revision;
+}
+
+void FMIBoxWorld::SetNavSpec(const FMINavSpec& InSpec)
+{
+	Spec = InSpec.IsMulti() ? InSpec : FMINavSpec();
 	bNavDirty = true;
 	++Revision;
 }
@@ -506,32 +514,164 @@ void FMIBoxWorld::RebuildNav()
 			}
 		}
 	}
+	FloodRegions(Blocked, Region);
+	LayerBlocked.Reset();
+	LayerRegion.Reset();
+	LayerBlocked.SetNum(NumLayers());
+	LayerRegion.SetNum(NumLayers());
+	ActiveLayer = 0;
+	for (int32 L = 1; L < Spec.Layers.Num(); ++L)
+	{
+		BuildBoxLayer(Spec.Layers[L], LayerBlocked[L]);
+		FloodRegions(LayerBlocked[L], LayerRegion[L]);
+	}
+}
+
+void FMIBoxWorld::FloodRegions(const TArray<uint8>& Blk, TArray<int32>& Reg)
+{
+	const int32 N = Cols * Rows;
+	Reg.Init(0, N);
 	int32 Id = 0;
 	for (int32 C = 0; C < N; ++C)
 	{
-		if (Blocked[C] || Region[C])
+		if (Blk[C] || Reg[C])
 		{
 			continue;
 		}
 		++Id;
 		int32 Top = 0;
 		PathBuf[Top++] = C;
-		Region[C] = Id;
+		Reg[C] = Id;
 		while (Top > 0)
 		{
 			const int32 Cur = PathBuf[--Top];
 			for (int32 D = 0; D < 4; ++D)
 			{
 				const int32 Nb = Cur + Offsets[D];
-				if (Blocked[Nb] || Region[Nb])
+				if (Blk[Nb] || Reg[Nb])
 				{
 					continue;
 				}
-				Region[Nb] = Id;
+				Reg[Nb] = Id;
 				PathBuf[Top++] = Nb;
 			}
 		}
 	}
+}
+
+bool FMIBoxWorld::BlocksNavAt(const FMIBox& B, double LayerY) const
+{
+	return !B.bNoNav && !B.bBulletOnly && !B.bPlayerOnly && B.Max.Y >= LayerY + NavBandMin && B.Min.Y <= LayerY + NavBandMax;
+}
+
+/** A roof layer (midtown.md 17.3): a cell is walkable when a support top lies within 0.45 of the layer's y at its
+ *  centre and nothing that blocks nav spans [y + 0.47, y + 1.5] within 0.5 m of it; cells outside the layer's rect are not. */
+void FMIBoxWorld::BuildBoxLayer(const FMINavLayer& L, TArray<uint8>& Blk)
+{
+	constexpr double SupportBand = 0.45;
+	const int32 N = Cols * Rows;
+	Blk.Init(1, N);
+	TArray<uint8> Support;
+	Support.Init(0, N);
+	for (const FMIBox& B : Boxes)
+	{
+		if (B.bBulletOnly || B.bPlayerOnly || FMath::Abs(B.Max.Y - L.Y) > SupportBand)
+		{
+			continue;
+		}
+		const int32 I0 = FMath::Max(0, static_cast<int32>(FMath::CeilToDouble((B.Min.X - OriginX) / NavCell - 0.5 - 1e-9)));
+		const int32 I1 = FMath::Min(Cols - 1, static_cast<int32>(FMath::FloorToDouble((B.Max.X - OriginX) / NavCell - 0.5 + 1e-9)));
+		const int32 J0 = FMath::Max(0, static_cast<int32>(FMath::CeilToDouble((B.Min.Z - OriginZ) / NavCell - 0.5 - 1e-9)));
+		const int32 J1 = FMath::Min(Rows - 1, static_cast<int32>(FMath::FloorToDouble((B.Max.Z - OriginZ) / NavCell - 0.5 + 1e-9)));
+		for (int32 J = J0; J <= J1; ++J)
+		{
+			for (int32 I = I0; I <= I1; ++I)
+			{
+				Support[J * Cols + I] = 1;
+			}
+		}
+	}
+	for (int32 J = 1; J < Rows - 1; ++J)
+	{
+		const double Z = OriginZ + (J + 0.5) * NavCell;
+		for (int32 I = 1; I < Cols - 1; ++I)
+		{
+			const double X = OriginX + (I + 0.5) * NavCell;
+			if (Support[J * Cols + I] && X >= L.MinX && X <= L.MaxX && Z >= L.MinZ && Z <= L.MaxZ)
+			{
+				Blk[J * Cols + I] = 0;
+			}
+		}
+	}
+	for (const FMIBox& B : Boxes)
+	{
+		if (!BlocksNavAt(B, L.Y))
+		{
+			continue;
+		}
+		const int32 I0 = FMath::Max(0, static_cast<int32>(FMath::CeilToDouble((B.Min.X - NavInflate - OriginX) / NavCell - 0.5 - 1e-9)));
+		const int32 I1 = FMath::Min(Cols - 1, static_cast<int32>(FMath::FloorToDouble((B.Max.X + NavInflate - OriginX) / NavCell - 0.5 + 1e-9)));
+		const int32 J0 = FMath::Max(0, static_cast<int32>(FMath::CeilToDouble((B.Min.Z - NavInflate - OriginZ) / NavCell - 0.5 - 1e-9)));
+		const int32 J1 = FMath::Min(Rows - 1, static_cast<int32>(FMath::FloorToDouble((B.Max.Z + NavInflate - OriginZ) / NavCell - 0.5 + 1e-9)));
+		for (int32 J = J0; J <= J1; ++J)
+		{
+			for (int32 I = I0; I <= I1; ++I)
+			{
+				Blk[J * Cols + I] = 1;
+			}
+		}
+	}
+}
+
+void FMIBoxWorld::UseLayer(int32 Layer)
+{
+	EnsureNav();
+	if (Layer < 0 || Layer >= LayerBlocked.Num() || Layer == ActiveLayer)
+	{
+		return;
+	}
+	Swap(Blocked, LayerBlocked[ActiveLayer]);
+	Swap(Region, LayerRegion[ActiveLayer]);
+	Swap(Blocked, LayerBlocked[Layer]);
+	Swap(Region, LayerRegion[Layer]);
+	ActiveLayer = Layer;
+}
+
+int32 FMIBoxWorld::LayerForY(double Y) const
+{
+	int32 Best = 0;
+	for (int32 L = 1; L < Spec.Layers.Num(); ++L)
+	{
+		if (Spec.Layers[L].Y <= Y + 0.5 && Spec.Layers[L].Y >= Spec.Layers[Best].Y)
+		{
+			Best = L;
+		}
+	}
+	return Best;
+}
+
+int32 FMIBoxWorld::LayerAt(const FVector& P)
+{
+	if (!HasLayers())
+	{
+		return 0;
+	}
+	int32 Best = INDEX_NONE;
+	for (int32 L = 0; L < Spec.Layers.Num(); ++L)
+	{
+		if (Spec.Layers[L].Y <= P.Y + 0.5 && (Best == INDEX_NONE || Spec.Layers[L].Y >= Spec.Layers[Best].Y) && IsWalkable(P.X, P.Z, L))
+		{
+			Best = L;
+		}
+	}
+	return Best == INDEX_NONE ? LayerForY(P.Y) : Best;
+}
+
+bool FMIBoxWorld::SameRegion(int32 Layer, const FVector& A, const FVector& B)
+{
+	UseLayer(Layer);
+	const int32 Start = NearestFree(A.X, A.Z, NavSnapRings, 0);
+	return Start >= 0 && NearestFree(B.X, B.Z, NavSnapRings, Region[Start]) >= 0;
 }
 
 int32 FMIBoxWorld::CellAt(double X, double Z) const
@@ -783,9 +923,9 @@ int32 FMIBoxWorld::Search(int32 Start, int32 Goal)
 	return 0;
 }
 
-bool FMIBoxWorld::FindPath(const FVector& A, const FVector& B, TArray<FVector>& Out)
+bool FMIBoxWorld::FindPath(const FVector& A, const FVector& B, TArray<FVector>& Out, int32 Layer)
 {
-	EnsureNav();
+	UseLayer(Layer);
 	Out.Reset();
 	const int32 Start = NearestFree(A.X, A.Z, NavSnapRings, 0);
 	if (Start < 0)
@@ -839,22 +979,22 @@ bool FMIBoxWorld::FindPath(const FVector& A, const FVector& B, TArray<FVector>& 
 	return true;
 }
 
-bool FMIBoxWorld::IsWalkable(double X, double Z)
+bool FMIBoxWorld::IsWalkable(double X, double Z, int32 Layer)
 {
-	EnsureNav();
+	UseLayer(Layer);
 	const int32 C = CellAt(X, Z);
 	return C >= 0 && Blocked[C] == 0;
 }
 
-bool FMIBoxWorld::ClearLine(const FVector& A, const FVector& B)
+bool FMIBoxWorld::ClearLine(const FVector& A, const FVector& B, int32 Layer)
 {
-	EnsureNav();
+	UseLayer(Layer);
 	return LineFree(A.X, A.Z, B.X, B.Z);
 }
 
-bool FMIBoxWorld::RandomPoint(const FVector& Center, double Radius, FVector& Out)
+bool FMIBoxWorld::RandomPoint(const FVector& Center, double Radius, FVector& Out, int32 Layer)
 {
-	EnsureNav();
+	UseLayer(Layer);
 	const int32 Home = NearestFree(Center.X, Center.Z, NavSnapRings, 0);
 	if (Home < 0)
 	{
@@ -876,9 +1016,9 @@ bool FMIBoxWorld::RandomPoint(const FVector& Center, double Radius, FVector& Out
 	return false;
 }
 
-bool FMIBoxWorld::NearestWalkable(double X, double Z, double MaxR, FVector& Out)
+bool FMIBoxWorld::NearestWalkable(double X, double Z, double MaxR, FVector& Out, int32 Layer)
 {
-	EnsureNav();
+	UseLayer(Layer);
 	const int32 C = CellAt(X, Z);
 	if (C >= 0 && !Blocked[C])
 	{

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Core/MIMath.h"
+#include "World/MINavLayers.h"
 
 /**
  * The block as the web game's AI sees it (src/physics.js, ported line for line): axis-aligned boxes from
@@ -103,16 +104,32 @@ public:
 	FMIMoveResult MoveCapsule(FVector& Pos, FVector& Vel, double Dt, double Radius, double Height, bool bAllowStep) const;
 
 	// ---- nav (0.5 m cells, A* with string pulling) ----
-	bool FindPath(const FVector& A, const FVector& B, TArray<FVector>& Out);
-	bool IsWalkable(double X, double Z);
-	bool ClearLine(const FVector& A, const FVector& B);
+	// Every nav call takes the layer of the one asking (default 0: the plane, today's grid). A level without
+	// `nav.layers` has one layer and these behave exactly as before; with layers (SetNavSpec) each layer has its own
+	// grid, and a Goon is snapped to, paths on and walks within his own (midtown.md 17.3).
+	bool FindPath(const FVector& A, const FVector& B, TArray<FVector>& Out, int32 Layer = 0);
+	bool IsWalkable(double X, double Z, int32 Layer = 0);
+	bool ClearLine(const FVector& A, const FVector& B, int32 Layer = 0);
 	/** A random walkable point within Radius of Center in the same connected area. */
-	bool RandomPoint(const FVector& Center, double Radius, FVector& Out);
+	bool RandomPoint(const FVector& Center, double Radius, FVector& Out, int32 Layer = 0);
 	/** The point itself when walkable, else the centre of the nearest free cell within MaxR. */
-	bool NearestWalkable(double X, double Z, double MaxR, FVector& Out);
+	bool NearestWalkable(double X, double Z, double MaxR, FVector& Out, int32 Layer = 0);
 	int32 NavCols() { EnsureNav(); return Cols; }
 	int32 NavRows() { EnsureNav(); return Rows; }
-	bool NavBlocked(int32 I, int32 J) { EnsureNav(); return Blocked[J * Cols + I] != 0; }
+	bool NavBlocked(int32 I, int32 J, int32 Layer = 0) { UseLayer(Layer); return Blocked[J * Cols + I] != 0; }
+
+	// ---- layers (nav step A) ----
+	/** The level's layers, reach and ranges. Call after Reset and the boxes; an empty spec (the Block) is one plane layer. */
+	void SetNavSpec(const FMINavSpec& InSpec);
+	const FMINavSpec& GetNavSpec() const { return Spec; }
+	bool HasLayers() const { return Spec.IsMulti(); }
+	int32 NumLayers() const { return FMath::Max(1, Spec.Layers.Num()); }
+	/** The highest layer whose y is at most Y + 0.5 (a spawn or a cover point: no grid look-up). */
+	int32 LayerForY(double Y) const;
+	/** A body's layer: the highest layer with y <= P.y + 0.5 that has a walkable cell under (x, z), else LayerForY. */
+	int32 LayerAt(const FVector& P);
+	/** Both points snap (within 6 m) to cells of one connected area of the layer. */
+	bool SameRegion(int32 Layer, const FVector& A, const FVector& B);
 
 private:
 	struct FRay
@@ -125,6 +142,11 @@ private:
 	bool BlocksNav(const FMIBox& B) const;
 	void EnsureNav() { if (bNavDirty) { RebuildNav(); } }
 	void RebuildNav();
+	/** Makes Layer's grid the one Blocked and Region hold (the others wait in LayerBlocked / LayerRegion). */
+	void UseLayer(int32 Layer);
+	void FloodRegions(const TArray<uint8>& Blk, TArray<int32>& Reg);
+	void BuildBoxLayer(const FMINavLayer& L, TArray<uint8>& Blk);
+	bool BlocksNavAt(const FMIBox& B, double LayerY) const;
 	int32 CellAt(double X, double Z) const;
 	int32 NearestFree(double X, double Z, int32 MaxRings, int32 InRegion) const;
 	bool LineFree(double X0, double Z0, double X1, double Z1) const;
@@ -158,6 +180,10 @@ private:
 	double OriginX = 0.0, OriginZ = 0.0;
 	TArray<uint8> Blocked;
 	TArray<int32> Region;
+	FMINavSpec Spec;
+	int32 ActiveLayer = 0;
+	TArray<TArray<uint8>> LayerBlocked;
+	TArray<TArray<int32>> LayerRegion;
 	TArray<double> GCost, FCost;
 	TArray<int32> Parent, Heap, HeapPos, PathBuf;
 	TArray<uint32> Seen, Closed;

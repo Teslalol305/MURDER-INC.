@@ -161,6 +161,7 @@ private:
 	};
 
 	void ForwardEnemyEvents();
+	void RequeueRecycled();
 	void SetState(EMIGameState Next);
 	void Note(FName Name, const FString& Text = FString(), double A = 0, double B = 0, double C = 0);
 	void ApplyWaveScale();
