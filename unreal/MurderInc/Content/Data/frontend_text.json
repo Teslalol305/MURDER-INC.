@@ -14,23 +14,9 @@
       "summary": {
         "$template": {
           "template": "{crew} · {guns} · {level} · {time} · {mode} · {difficulty}",
-          "params": [
-            "crew",
-            "guns",
-            "level",
-            "time",
-            "mode",
-            "difficulty"
-          ],
+          "params": ["crew", "guns", "level", "time", "mode", "difficulty"],
           "example": {
-            "args": [
-              "RULE",
-              "CHOPPER / NINE",
-              "The Block",
-              "Day",
-              "Story",
-              "Boss"
-            ],
+            "args": ["RULE", "CHOPPER / NINE", "The Block", "Day", "Story", "Boss"],
             "value": "RULE · CHOPPER / NINE · The Block · Day · Story · Boss"
           }
         }
@@ -38,47 +24,24 @@
       "firstTime": "First time out: pick your crew and your guns."
     },
     "steps": {
-      "labels": [
-        "Crew",
-        "Loadout",
-        "Block & Style",
-        "Briefing"
-      ],
+      "labels": ["Crew", "Loadout", "Block & Style", "Briefing"],
       "of": {
         "$template": {
           "template": "Step {n} of {total}",
-          "params": [
-            "n",
-            "total"
-          ],
-          "example": {
-            "args": [
-              2,
-              4
-            ],
-            "value": "Step 2 of 4"
-          }
+          "params": ["n", "total"],
+          "example": {"args": [2, 4], "value": "Step 2 of 4"}
         }
       },
       "next": "Next",
       "back": "Back",
-      "labelsSplit": [
-        "Crew",
-        "Loadout",
-        "Block",
-        "Style",
-        "Briefing"
-      ],
+      "labelsSplit": ["Crew", "Loadout", "Block", "Style", "Briefing"],
       "done": "Done"
     },
     "crew": {
       "kicker": "Who's going in",
       "title": "Pick your crew",
       "note": "Looks only. Everybody shoots the same.",
-      "rule": {
-        "name": "RULE",
-        "tagline": "The star. Leather gloves, steel watch, curb chain."
-      },
+      "rule": {"name": "RULE", "tagline": "The star. Leather gloves, steel watch, curb chain."},
       "deuce": {
         "name": "DEUCE",
         "tagline": "Goes in first. Black nylon gloves.",
@@ -99,34 +62,14 @@
       "kicker": "What you're carrying",
       "title": "Pick up to four",
       "carry": "Carry up to four. Melee comes with you.",
-      "slot": {
-        "$template": {
-          "template": "Slot {n}",
-          "params": [
-            "n"
-          ],
-          "example": {
-            "args": [
-              3
-            ],
-            "value": "Slot 3"
-          }
-        }
-      },
+      "slot": {"$template": {"template": "Slot {n}", "params": ["n"], "example": {"args": [3], "value": "Slot 3"}}},
       "empty": "Empty",
       "emptyHint": "Pick a gun from the rack",
       "carried": {
         "$template": {
           "template": "Carried · slot {n}",
-          "params": [
-            "n"
-          ],
-          "example": {
-            "args": [
-              1
-            ],
-            "value": "Carried · slot 1"
-          }
+          "params": ["n"],
+          "example": {"args": [1], "value": "Carried · slot 1"}
         }
       },
       "needOne": "Carry at least one gun",
@@ -135,18 +78,8 @@
       "remove": "Take off",
       "move": "Move",
       "new": "NEW",
-      "filters": {
-        "all": "All",
-        "rifle": "Rifles",
-        "smg": "SMGs",
-        "pistol": "Pistols",
-        "new": "New"
-      },
-      "classes": {
-        "rifle": "Rifle",
-        "smg": "SMG",
-        "pistol": "Pistol"
-      },
+      "filters": {"all": "All", "rifle": "Rifles", "smg": "SMGs", "pistol": "Pistols", "new": "New"},
+      "classes": {"rifle": "Rifle", "smg": "SMG", "pistol": "Pistol"},
       "stats": {
         "damage": "Damage",
         "kill": "Kill speed",
@@ -161,15 +94,8 @@
       "slots": {
         "$template": {
           "template": "{n} attachment slots",
-          "params": [
-            "n"
-          ],
-          "example": {
-            "args": [
-              7
-            ],
-            "value": "7 attachment slots"
-          }
+          "params": ["n"],
+          "example": {"args": [7], "value": "7 attachment slots"}
         }
       },
       "noSlots": "No attachments",
@@ -181,15 +107,8 @@
       "title": {
         "$template": {
           "template": "Build the {gun}",
-          "params": [
-            "gun"
-          ],
-          "example": {
-            "args": [
-              "STICK"
-            ],
-            "value": "Build the STICK"
-          }
+          "params": ["gun"],
+          "example": {"args": ["STICK"], "value": "Build the STICK"}
         }
       },
       "slots": {
@@ -210,94 +129,40 @@
       "worse": "Worse",
       "noChange": "No change to the rules",
       "items": {
-        "irons": {
-          "name": "Folding irons",
-          "blurb": "Flip-up sights. Fold down under a scope."
-        },
-        "scope": {
-          "name": "Scope",
-          "blurb": "Reach across the block. Slow to come up."
-        },
-        "silencer": {
-          "name": "Suppressor",
-          "blurb": "Keeps it quiet. Loses a little bite at range."
-        },
-        "gripVertical": {
-          "name": "Vertical grip",
-          "blurb": "Holds the muzzle down. Heavier in the hands."
-        },
-        "gripAngled": {
-          "name": "Angled grip",
-          "blurb": "Quick to the eye. Wanders more sideways."
-        },
+        "irons": {"name": "Folding irons", "blurb": "Flip-up sights. Fold down under a scope."},
+        "scope": {"name": "Scope", "blurb": "Reach across the block. Slow to come up."},
+        "silencer": {"name": "Suppressor", "blurb": "Keeps it quiet. Loses a little bite at range."},
+        "gripVertical": {"name": "Vertical grip", "blurb": "Holds the muzzle down. Heavier in the hands."},
+        "gripAngled": {"name": "Angled grip", "blurb": "Quick to the eye. Wanders more sideways."},
         "laser": {
           "name": "Laser",
           "blurb": "Tightens hip fire, a little looser when aimed. The dot shows where it goes, and pulls your eye off the sight."
         },
-        "magStandard": {
-          "name": "Standard mag",
-          "blurb": "Thirty rounds, steel."
-        },
-        "magClear": {
-          "name": "Clear mag",
-          "blurb": "See what's left. Reloads a little quicker, kicks a touch more."
-        },
-        "stockOpen": {
-          "name": "Stock open",
-          "blurb": "On the shoulder."
-        },
-        "stockFolded": {
-          "name": "Stock folded",
-          "blurb": "Quick hands, wild kick."
-        },
-        "redDot": {
-          "name": "Red dot",
-          "blurb": "Gets on target fast, a little looser when aimed. The dot covers the small stuff."
-        },
-        "scope4x": {
-          "name": "2x scope",
-          "blurb": "Twice the reach. Slow to come up, shaky on the move."
-        },
-        "suppressor": {
-          "name": "Suppressor",
-          "blurb": "Long and quiet. Loses a little bite at range."
-        },
-        "suppressorPistol": {
-          "name": "Pistol suppressor",
-          "blurb": "Quiet in the hand. Loses a little bite at range."
-        },
-        "compensator": {
-          "name": "Compensator",
-          "blurb": "Keeps the muzzle down. Louder, with a bigger flash."
-        },
-        "foregripVertical": {
-          "name": "Vertical grip",
-          "blurb": "Holds the muzzle down. Heavier in the hands."
-        },
+        "magStandard": {"name": "Standard mag", "blurb": "Thirty rounds, steel."},
+        "magClear": {"name": "Clear mag", "blurb": "See what's left. Reloads a little quicker, kicks a touch more."},
+        "stockOpen": {"name": "Stock open", "blurb": "On the shoulder."},
+        "stockFolded": {"name": "Stock folded", "blurb": "Quick hands, wild kick."},
+        "redDot": {"name": "Red dot", "blurb": "Gets on target fast, a little looser when aimed. The dot covers the small stuff."},
+        "scope4x": {"name": "2x scope", "blurb": "Twice the reach. Slow to come up, shaky on the move."},
+        "suppressor": {"name": "Suppressor", "blurb": "Long and quiet. Loses a little bite at range."},
+        "suppressorPistol": {"name": "Pistol suppressor", "blurb": "Quiet in the hand. Loses a little bite at range."},
+        "compensator": {"name": "Compensator", "blurb": "Keeps the muzzle down. Louder, with a bigger flash."},
+        "foregripVertical": {"name": "Vertical grip", "blurb": "Holds the muzzle down. Heavier in the hands."},
         "foregripVerticalWood": {
           "name": "Vertical grip",
           "blurb": "Walnut, clamped round the handguard. Holds the muzzle down."
         },
-        "foregripAngled": {
-          "name": "Angled grip",
-          "blurb": "Quick to the eye. Wanders more sideways."
-        },
+        "foregripAngled": {"name": "Angled grip", "blurb": "Quick to the eye. Wanders more sideways."},
         "laserModule": {
           "name": "Laser module",
           "blurb": "Tightens hip fire. The dot pulls your eye off the sight."
         },
-        "magExtRifle": {
-          "name": "Extended mag",
-          "blurb": "Forty-five rounds. Slower to reload and to swap."
-        },
+        "magExtRifle": {"name": "Extended mag", "blurb": "Forty-five rounds. Slower to reload and to swap."},
         "magExtSmg": {
           "name": "Extended mag",
           "blurb": "Forty-eight rounds in a long stick. Slower to reload and to swap."
         },
-        "magExtPistol": {
-          "name": "Extended mag",
-          "blurb": "Twenty-four rounds. Longer, so slower to reload."
-        }
+        "magExtPistol": {"name": "Extended mag", "blurb": "Twenty-four rounds. Longer, so slower to reload."}
       },
       "noPartsYet": "No parts on this gun yet.",
       "noPartsYetNote": "Its mounts are not built yet. Nothing to fit for now."
@@ -307,371 +172,145 @@
       "adsTime": {
         "$template": {
           "template": "{mark} {sign}{pct}% aim time",
-          "params": [
-            "mark",
-            "sign",
-            "pct"
-          ],
-          "example": {
-            "args": [
-              "▼",
-              "+",
-              35
-            ],
-            "value": "▼ +35% aim time"
-          }
+          "params": ["mark", "sign", "pct"],
+          "example": {"args": ["▼", "+", 35], "value": "▼ +35% aim time"}
         }
       },
       "adsFov": {
         "$template": {
           "template": "{mark} Aimed view {value}° (from {base}°)",
-          "params": [
-            "mark",
-            "value",
-            "base"
-          ],
-          "example": {
-            "args": [
-              "•",
-              30,
-              52
-            ],
-            "value": "• Aimed view 30° (from 52°)"
-          }
+          "params": ["mark", "value", "base"],
+          "example": {"args": ["•", 30, 52], "value": "• Aimed view 30° (from 52°)"}
         }
       },
       "spreadHip": {
         "$template": {
           "template": "{mark} {sign}{pct}% hip spread",
-          "params": [
-            "mark",
-            "sign",
-            "pct"
-          ],
-          "example": {
-            "args": [
-              "▲",
-              "−",
-              20
-            ],
-            "value": "▲ −20% hip spread"
-          }
+          "params": ["mark", "sign", "pct"],
+          "example": {"args": ["▲", "−", 20], "value": "▲ −20% hip spread"}
         }
       },
       "spreadMoveHip": {
         "$template": {
           "template": "{mark} {sign}{pct}% spread on the move",
-          "params": [
-            "mark",
-            "sign",
-            "pct"
-          ],
-          "example": {
-            "args": [
-              "▲",
-              "−",
-              15
-            ],
-            "value": "▲ −15% spread on the move"
-          }
+          "params": ["mark", "sign", "pct"],
+          "example": {"args": ["▲", "−", 15], "value": "▲ −15% spread on the move"}
         }
       },
       "spreadAds": {
         "$template": {
           "template": "{mark} {sign}{pct}% aimed spread",
-          "params": [
-            "mark",
-            "sign",
-            "pct"
-          ],
-          "example": {
-            "args": [
-              "▲",
-              "−",
-              30
-            ],
-            "value": "▲ −30% aimed spread"
-          }
+          "params": ["mark", "sign", "pct"],
+          "example": {"args": ["▲", "−", 30], "value": "▲ −30% aimed spread"}
         }
       },
       "spreadMoveAds": {
         "$template": {
           "template": "{mark} {sign}{pct}% aimed spread on the move",
-          "params": [
-            "mark",
-            "sign",
-            "pct"
-          ],
-          "example": {
-            "args": [
-              "▼",
-              "+",
-              30
-            ],
-            "value": "▼ +30% aimed spread on the move"
-          }
+          "params": ["mark", "sign", "pct"],
+          "example": {"args": ["▼", "+", 30], "value": "▼ +30% aimed spread on the move"}
         }
       },
       "recoilPitch": {
         "$template": {
           "template": "{mark} {sign}{pct}% kick",
-          "params": [
-            "mark",
-            "sign",
-            "pct"
-          ],
-          "example": {
-            "args": [
-              "▲",
-              "−",
-              12
-            ],
-            "value": "▲ −12% kick"
-          }
+          "params": ["mark", "sign", "pct"],
+          "example": {"args": ["▲", "−", 12], "value": "▲ −12% kick"}
         }
       },
       "recoilYaw": {
         "$template": {
           "template": "{mark} {sign}{pct}% side-to-side",
-          "params": [
-            "mark",
-            "sign",
-            "pct"
-          ],
-          "example": {
-            "args": [
-              "▼",
-              "+",
-              12
-            ],
-            "value": "▼ +12% side-to-side"
-          }
+          "params": ["mark", "sign", "pct"],
+          "example": {"args": ["▼", "+", 12], "value": "▼ +12% side-to-side"}
         }
       },
       "swapTime": {
         "$template": {
           "template": "{mark} {sign}{pct}% swap time",
-          "params": [
-            "mark",
-            "sign",
-            "pct"
-          ],
-          "example": {
-            "args": [
-              "▼",
-              "+",
-              6
-            ],
-            "value": "▼ +6% swap time"
-          }
+          "params": ["mark", "sign", "pct"],
+          "example": {"args": ["▼", "+", 6], "value": "▼ +6% swap time"}
         }
       },
       "reloadTime": {
         "$template": {
           "template": "{mark} {sign}{pct}% reload time",
-          "params": [
-            "mark",
-            "sign",
-            "pct"
-          ],
-          "example": {
-            "args": [
-              "▲",
-              "−",
-              6
-            ],
-            "value": "▲ −6% reload time"
-          }
+          "params": ["mark", "sign", "pct"],
+          "example": {"args": ["▲", "−", 6], "value": "▲ −6% reload time"}
         }
       },
       "magSize": {
         "$template": {
           "template": "{mark} {sign}{pct}% rounds per magazine",
-          "params": [
-            "mark",
-            "sign",
-            "pct"
-          ],
-          "example": {
-            "args": [
-              "▲",
-              "+",
-              50
-            ],
-            "value": "▲ +50% rounds per magazine"
-          }
+          "params": ["mark", "sign", "pct"],
+          "example": {"args": ["▲", "+", 50], "value": "▲ +50% rounds per magazine"}
         }
       },
       "noise": {
         "$template": {
           "template": "{mark} Heard {value} m out (from {base} m)",
-          "params": [
-            "mark",
-            "value",
-            "base"
-          ],
-          "example": {
-            "args": [
-              "▲",
-              18,
-              45
-            ],
-            "value": "▲ Heard 18 m out (from 45 m)"
-          }
+          "params": ["mark", "value", "base"],
+          "example": {"args": ["▲", 18, 45], "value": "▲ Heard 18 m out (from 45 m)"}
         }
       },
       "flash": {
         "$template": {
           "template": "{mark} {sign}{pct}% muzzle flash",
-          "params": [
-            "mark",
-            "sign",
-            "pct"
-          ],
-          "example": {
-            "args": [
-              "▲",
-              "−",
-              85
-            ],
-            "value": "▲ −85% muzzle flash"
-          }
+          "params": ["mark", "sign", "pct"],
+          "example": {"args": ["▲", "−", 85], "value": "▲ −85% muzzle flash"}
         }
       },
       "falloff": {
         "$template": {
           "template": "{mark} Damage drops past {value} m",
-          "params": [
-            "mark",
-            "value"
-          ],
-          "example": {
-            "args": [
-              "▼",
-              25
-            ],
-            "value": "▼ Damage drops past 25 m"
-          }
+          "params": ["mark", "value"],
+          "example": {"args": ["▼", 25], "value": "▼ Damage drops past 25 m"}
         }
       },
       "falloffMin": {
         "$template": {
           "template": "{mark} {value}% damage at long range",
-          "params": [
-            "mark",
-            "value"
-          ],
-          "example": {
-            "args": [
-              "▼",
-              85
-            ],
-            "value": "▼ 85% damage at long range"
-          }
+          "params": ["mark", "value"],
+          "example": {"args": ["▼", 85], "value": "▼ 85% damage at long range"}
         }
       },
       "length": {
         "$template": {
           "template": "{mark} {sign}{pct}% gun length (pulls back from walls sooner)",
-          "params": [
-            "mark",
-            "sign",
-            "pct"
-          ],
-          "example": {
-            "args": [
-              "▼",
-              "+",
-              12
-            ],
-            "value": "▼ +12% gun length (pulls back from walls sooner)"
-          }
+          "params": ["mark", "sign", "pct"],
+          "example": {"args": ["▼", "+", 12], "value": "▼ +12% gun length (pulls back from walls sooner)"}
         }
       },
       "sway": {
         "$template": {
           "template": "{mark} {sign}{pct}% sway",
-          "params": [
-            "mark",
-            "sign",
-            "pct"
-          ],
-          "example": {
-            "args": [
-              "▼",
-              "+",
-              20
-            ],
-            "value": "▼ +20% sway"
-          }
+          "params": ["mark", "sign", "pct"],
+          "example": {"args": ["▼", "+", 20], "value": "▼ +20% sway"}
         }
       },
       "lengthShorter": {
         "$template": {
           "template": "{mark} {sign}{pct}% gun length (pulls back from walls later)",
-          "params": [
-            "mark",
-            "sign",
-            "pct"
-          ],
-          "example": {
-            "args": [
-              "▲",
-              "−",
-              14
-            ],
-            "value": "▲ −14% gun length (pulls back from walls later)"
-          }
+          "params": ["mark", "sign", "pct"],
+          "example": {"args": ["▲", "−", 14], "value": "▲ −14% gun length (pulls back from walls later)"}
         }
       }
     },
     "level": {
+      "number": {"$template": {"template": "Level {n}", "params": ["n"]}},
+      "locked": "Locked",
+      "lockedHint": {"$template": {"template": "Finish {level} to open", "params": ["level"]}},
+      "notCleared": "Not cleared yet",
+      "cleared": {"$template": {"template": "Cleared · {rating} · {difficulty}", "params": ["rating", "difficulty"]}},
       "kicker": "Where it goes down",
       "title": "Pick the block",
       "time": "Time",
-      "times": {
-        "day": "Day",
-        "night": "Night"
-      },
+      "times": {"day": "Day", "night": "Night"},
       "modes": {
         "$template": {
           "template": "Plays {modes}",
-          "params": [
-            "modes"
-          ],
-          "example": {
-            "args": [
-              "Story · Hold the Block"
-            ],
-            "value": "Plays Story · Hold the Block"
-          }
-        }
-      },
-      "number": {
-        "$template": {
-          "template": "Level {n}",
-          "params": [
-            "n"
-          ]
-        }
-      },
-      "locked": "Locked",
-      "lockedHint": {
-        "$template": {
-          "template": "Finish {level} to open",
-          "params": [
-            "level"
-          ]
-        }
-      },
-      "notCleared": "Not cleared yet",
-      "cleared": {
-        "$template": {
-          "template": "Cleared · {rating} · {difficulty}",
-          "params": [
-            "rating",
-            "difficulty"
-          ]
+          "params": ["modes"],
+          "example": {"args": ["Story · Hold the Block"], "value": "Plays Story · Hold the Block"}
         }
       }
     },
@@ -692,6 +331,15 @@
         "placeShort": "Midtown, Manhattan · 11:52 PM"
       }
     },
+    "campaign": {
+      "next": {"$template": {"template": "Next: {level}", "params": ["level"]}},
+      "codeLabel": "Progress code",
+      "levelSelect": "Level select",
+      "code": {
+        "ok": {"$template": {"template": "Welcome back. {level} is open.", "params": ["level"]}},
+        "bad": "That code doesn't check out."
+      }
+    },
     "mode": {
       "kicker": "How it goes down",
       "title": "Pick the style",
@@ -699,18 +347,9 @@
       "best": {
         "$template": {
           "template": "Best {score}",
-          "params": [
-            "score"
-          ],
-          "formats": {
-            "score": "rounded to a whole number, en-US digit grouping (12,345)"
-          },
-          "example": {
-            "args": [
-              12345
-            ],
-            "value": "Best 12,345"
-          }
+          "params": ["score"],
+          "formats": {"score": "rounded to a whole number, en-US digit grouping (12,345)"},
+          "example": {"args": [12345], "value": "Best 12,345"}
         }
       },
       "difficultyNotes": {
@@ -730,68 +369,29 @@
       "go": "Hit the block",
       "about": "the Style line shows the mode tagline (text.location.tagline / taglineHoldout); the radio intro is not printed, the intro plays it"
     },
-    "cards": {
-      "changeSetup": "Change set-up"
-    },
-    "hud": {
-      "modes": {
-        "auto": "AUTO",
-        "semi": "SEMI",
-        "switchTo": "SWITCH TO"
-      },
-      "wheel": "Pick a gun",
-      "empty": "Empty",
-      "bag": "BAG"
-    },
+    "cards": {"changeSetup": "Change set-up"},
+    "hud": {"modes": {"auto": "AUTO", "semi": "SEMI", "switchTo": "SWITCH TO"}, "wheel": "Pick a gun", "empty": "Empty", "bag": "BAG"},
     "weapons": {
-      "shorty": {
-        "name": "SHORTY",
-        "blurb": "Bullpup carbine, 30 rounds, quick in tight spots"
-      },
-      "stick": {
-        "name": "STICK",
-        "blurb": "Rail carbine, 30 rounds, takes every attachment"
-      },
-      "stretch": {
-        "name": "STRETCH",
-        "blurb": "Semi-automatic marksman rifle, 30 rounds, longer reach, steady at range"
-      },
-      "rattler": {
-        "name": "RATTLER",
-        "blurb": "Taken off a Vulture, 32 rounds, quick hands, short reach"
-      },
-      "melee": {
-        "shorty": "Stock bash",
-        "stick": "Stock bash",
-        "stretch": "Stock bash",
-        "rattler": "Stock bash"
-      }
+      "shorty": {"name": "SHORTY", "blurb": "Bullpup carbine, 30 rounds, quick in tight spots"},
+      "stick": {"name": "STICK", "blurb": "Rail carbine, 30 rounds, takes every attachment"},
+      "stretch": {"name": "STRETCH", "blurb": "Semi-automatic marksman rifle, 30 rounds, longer reach, steady at range"},
+      "rattler": {"name": "RATTLER", "blurb": "Taken off a Vulture, 32 rounds, quick hands, short reach"},
+      "melee": {"shorty": "Stock bash", "stick": "Stock bash", "stretch": "Stock bash", "rattler": "Stock bash"}
     },
     "crewLines": {
       "deadKicker": {
         "$template": {
           "template": "{name} down",
-          "params": [
-            "name"
-          ],
-          "example": {
-            "args": [
-              "Deuce"
-            ],
-            "value": "Deuce down"
-          }
+          "params": ["name"],
+          "example": {"args": ["Deuce"], "value": "Deuce down"}
         }
       },
       "radioIntro": {
         "$template": {
           "template": "{name}, it's the Vault. Vultures stashed your three masters on this block — the avenue, the chop shop, the cage. Bring them home.",
-          "params": [
-            "name"
-          ],
+          "params": ["name"],
           "example": {
-            "args": [
-              "Smoke"
-            ],
+            "args": ["Smoke"],
             "value": "Smoke, it's the Vault. Vultures stashed your three masters on this block — the avenue, the chop shop, the cage. Bring them home."
           }
         }
@@ -799,13 +399,9 @@
       "radioIntroHoldout": {
         "$template": {
           "template": "{name}, it's the Vault. The Vultures want the whole block back. Hold it down as long as you can.",
-          "params": [
-            "name"
-          ],
+          "params": ["name"],
           "example": {
-            "args": [
-              "Keys"
-            ],
+            "args": ["Keys"],
             "value": "Keys, it's the Vault. The Vultures want the whole block back. Hold it down as long as you can."
           }
         }
@@ -813,183 +409,38 @@
       "radioDone": {
         "$template": {
           "template": "Masters are in the vault. The block is yours, {name}.",
-          "params": [
-            "name"
-          ],
-          "example": {
-            "args": [
-              "Deuce"
-            ],
-            "value": "Masters are in the vault. The block is yours, Deuce."
-          }
+          "params": ["name"],
+          "example": {"args": ["Deuce"], "value": "Masters are in the vault. The block is yours, Deuce."}
         }
       }
     },
     "glyphs": {
       "about": "Key and button names drawn next to the controls they work, for the device the player used last: kbm (keyboard and mouse), pad, touch (none). weapon3 to wheel: the HUD's four-slot bar; back to panes: the set-up screens' bottom bar and hints (LOADOUT.md 2.2).",
-      "kbm": {
-        "weapon3": "3",
-        "weapon4": "4",
-        "fireMode": "B",
-        "inspect": "T",
-        "wheel": "Hold Q",
-        "back": "Esc",
-        "next": "Enter",
-        "toBriefing": "Ctrl+Enter",
-        "prevGun": "[",
-        "nextGun": "]",
-        "reset": "R",
-        "bench": "E",
-        "melee": "F",
-        "empty": "Del",
-        "panes": "Tab"
-      },
-      "pad": {
-        "weapon3": "",
-        "weapon4": "",
-        "fireMode": "VIEW",
-        "inspect": "Hold VIEW",
-        "wheel": "Hold Y",
-        "back": "B",
-        "next": "Start",
-        "toBriefing": "View+Start",
-        "prevGun": "LB",
-        "nextGun": "RB",
-        "reset": "Y",
-        "bench": "Y",
-        "melee": "RB",
-        "empty": "X",
-        "panes": "LB / RB"
-      },
-      "touch": {
-        "weapon3": "",
-        "weapon4": "",
-        "fireMode": "MODE",
-        "inspect": "",
-        "wheel": "",
-        "back": "",
-        "next": "",
-        "toBriefing": "",
-        "prevGun": "",
-        "nextGun": "",
-        "reset": "",
-        "bench": "",
-        "melee": "",
-        "empty": "",
-        "panes": ""
-      }
+      "kbm": {"weapon3": "3", "weapon4": "4", "fireMode": "B", "inspect": "T", "wheel": "Hold Q",
+        "back": "Esc", "next": "Enter", "toBriefing": "Ctrl+Enter", "prevGun": "[", "nextGun": "]", "reset": "R", "bench": "E", "melee": "F", "empty": "Del", "panes": "Tab"},
+      "pad": {"weapon3": "", "weapon4": "", "fireMode": "VIEW", "inspect": "Hold VIEW", "wheel": "Hold Y",
+        "back": "B", "next": "Start", "toBriefing": "View+Start", "prevGun": "LB", "nextGun": "RB", "reset": "Y", "bench": "Y", "melee": "RB", "empty": "X", "panes": "LB / RB"},
+      "touch": {"weapon3": "", "weapon4": "", "fireMode": "MODE", "inspect": "", "wheel": "",
+        "back": "", "next": "", "toBriefing": "", "prevGun": "", "nextGun": "", "reset": "", "bench": "", "melee": "", "empty": "", "panes": ""}
     },
     "controls": {
       "about": "Rows added to the Controls drawer (text.json interface.controls), after Swap weapon. The wheel rows show only when three or more guns are carried.",
       "kbm": [
-        [
-          "Weapons",
-          [
-            "1",
-            "2",
-            "3",
-            "4"
-          ]
-        ],
-        [
-          "Last gun",
-          [
-            "Q"
-          ]
-        ],
-        [
-          "Weapon wheel",
-          [
-            "Hold Q"
-          ]
-        ],
-        [
-          "Next / previous gun",
-          [
-            "Wheel"
-          ]
-        ],
-        [
-          "Fire mode",
-          [
-            "B"
-          ]
-        ],
-        [
-          "Inspect",
-          [
-            "T"
-          ]
-        ]
+        ["Weapons", ["1", "2", "3", "4"]],
+        ["Last gun", ["Q"]],
+        ["Weapon wheel", ["Hold Q"]],
+        ["Next / previous gun", ["Wheel"]],
+        ["Fire mode", ["B"]],
+        ["Inspect", ["T"]]
       ],
       "pad": [
-        [
-          "Last gun",
-          [
-            "Y"
-          ]
-        ],
-        [
-          "Weapon wheel",
-          [
-            "Hold Y"
-          ]
-        ],
-        [
-          "Next / previous gun",
-          [
-            "D-pad ↑",
-            "D-pad ↓"
-          ]
-        ],
-        [
-          "Fire mode",
-          [
-            "View"
-          ]
-        ],
-        [
-          "Inspect",
-          [
-            "Hold View"
-          ]
-        ]
+        ["Last gun", ["Y"]],
+        ["Weapon wheel", ["Hold Y"]],
+        ["Next / previous gun", ["D-pad ↑", "D-pad ↓"]],
+        ["Fire mode", ["View"]],
+        ["Inspect", ["Hold View"]]
       ]
     },
-    "where": {
-      "kicker": "Where and how",
-      "title": "Block & Style"
-    },
-    "campaign": {
-      "next": {
-        "$template": {
-          "template": "Next: {level}",
-          "params": [
-            "level"
-          ]
-        }
-      },
-      "codeLabel": "Progress code",
-      "levelSelect": "Level select",
-      "loadingKicker": {
-        "$template": {
-          "template": "Level {n} of 3",
-          "params": [
-            "n"
-          ]
-        }
-      },
-      "code": {
-        "ok": {
-          "$template": {
-            "template": "Welcome back. {level} is open.",
-            "params": [
-              "level"
-            ]
-          }
-        },
-        "bad": "That code doesn't check out."
-      }
-    }
+    "where": {"kicker": "Where and how", "title": "Block & Style"}
   }
 }

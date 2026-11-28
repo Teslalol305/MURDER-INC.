@@ -27,11 +27,7 @@
     "armWidth": 0.2,
     "armAngle": 52,
     "lift": 0.035,
-    "color": [
-      0.2,
-      0.85,
-      1.0
-    ],
+    "color": [0.2, 0.85, 1.0],
     "intensity": 80000,
     "shade": 0.12,
     "shadeReach": 5.0,
@@ -42,11 +38,7 @@
     "low": 0.6,
     "underlay": {
       "material": "/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial",
-      "color": [
-        0.02,
-        0.018,
-        0.016
-      ],
+      "color": [0.02, 0.018, 0.016],
       "width": 2.4,
       "longer": 0.1,
       "drop": 0.012,
@@ -68,79 +60,31 @@
   "levels": {
     "block": {
       "steps": {
-        "reel1": {
-          "hint": "Reel 1's out on the avenue, under the El. Head east."
-        },
-        "reel2": {
-          "hint": "Reel 2's inside V&R Auto Body, north side. The bay door's open."
-        },
-        "reel3": {
-          "hint": "Reel 3's in the cage at the north-east end. The gate's off the avenue."
-        },
-        "extraction": {
-          "hint": "The IPX truck's idling at the south end of the lot. Get to its back doors."
-        }
+        "reel1": {"hint": "Reel 1's out on the avenue, under the El. Head east."},
+        "reel2": {"hint": "Reel 2's inside V&R Auto Body, north side. The bay door's open."},
+        "reel3": {"hint": "Reel 3's in the cage at the north-east end. The gate's off the avenue."},
+        "extraction": {"hint": "The IPX truck's idling at the south end of the lot. Get to its back doors."}
       },
       "waysDown_note": "The upper floors a player can reach on foot and the stair down from each (the station's stair is closed: its steps are 0.75 m, over the 0.42 m a body climbs)",
       "waysDown": [
-        {
-          "name": "the scaffold shed's stair",
-          "top": [
-            1.3,
-            2.95,
-            9.95
-          ],
-          "foot": [
-            -3.2,
-            0.15,
-            9.95
-          ]
-        },
-        {
-          "name": "the chop shop mezzanine stair",
-          "top": [
-            -15.7,
-            2.8,
-            -25.65
-          ],
-          "foot": [
-            -11.7,
-            0.0,
-            -25.65
-          ]
-        }
+        {"name": "the scaffold shed's stair", "top": [1.3, 2.95, 9.95], "foot": [-3.2, 0.15, 9.95]},
+        {"name": "the chop shop mezzanine stair", "top": [-15.7, 2.8, -25.65], "foot": [-11.7, 0.0, -25.65]}
       ]
     },
     "chinatown": {
       "steps": {
-        "reel4": {
-          "hint": "Reel 4's on a table outside the market. South side of Canal."
-        },
-        "reel5": {
-          "hint": "Back of the market. The cold room, by the west wall."
-        },
-        "reel6": {
-          "hint": "The dub room's at the south end of Mott St. Its shutter's the only one up."
-        },
-        "extraction": {
-          "hint": "The truck's at the east end of Canal. Cut through the arcade off the square."
-        }
+        "reel4": {"hint": "Reel 4's on a table outside the market. South side of Canal."},
+        "reel5": {"hint": "Back of the market. The cold room, by the west wall."},
+        "reel6": {"hint": "The dub room's at the south end of Mott St. Its shutter's the only one up."},
+        "extraction": {"hint": "The truck's at the east end of Canal. Cut through the arcade off the square."}
       }
     },
     "midtown": {
       "steps": {
-        "reel7": {
-          "hint": "The tanks are one roof down from the top. Steel stair on the east side of the high roof."
-        },
-        "reel8": {
-          "hint": "The gantry's behind the big screen, on the low roof. Stairs at the south edge of the tank roof."
-        },
-        "reel9": {
-          "hint": "The booth's under the stand, north end of the square. Scaffold off the gantry, or the service stair inside."
-        },
-        "extraction": {
-          "hint": "The truck's on Forty-Sixth, east of the square. Down Broadway, past the bus."
-        }
+        "reel7": {"hint": "The tanks are one roof down from the top. Steel stair on the east side of the high roof."},
+        "reel8": {"hint": "The gantry's behind the big screen, on the low roof. Stairs at the south edge of the tank roof."},
+        "reel9": {"hint": "The booth's under the stand, north end of the square. Scaffold off the gantry, or the service stair inside."},
+        "extraction": {"hint": "The truck's on Forty-Sixth, east of the square. Down Broadway, past the bus."}
       }
     }
   }
