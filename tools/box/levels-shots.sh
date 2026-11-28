@@ -35,5 +35,10 @@ fe hit; settle 3; ui_shot "$out/levels-loading.jpg"
 sleep 25; settle 20
 echo "AFTER TRAVEL:"; tail -n +"$mark" "$log" | grep -E "Game: booted|Travel|Campaign|Set-up:|Error|MIMenu fe" | tail -12 | cut -c1-260
 settle 40; ui_shot "$out/levels-canal-run.jpg"
+# Complete Canal Street (dev command), the debrief with Next, then the travel to Midtown.
+sleep 12; pie_con "MICampaign finish" > /dev/null; sleep 9; settle 30; ui_shot "$out/levels-debrief.jpg"
+pie_con "MIMenu confirm" > /dev/null; sleep 30; settle 30
+echo "AFTER NEXT:"; tail -n +"$mark" "$log" | grep -E "Game: booted|Campaign|Travel|Error" | tail -6 | cut -c1-260
+ui_shot "$out/levels-midtown-run.jpg"
 pie_stop > /dev/null
 echo "LEVELS SHOTS DONE"
